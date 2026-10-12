@@ -1,0 +1,108 @@
+import { useSyncExternalStore } from 'react'
+import { getMoonIllumination, getMoonPosition, getPosition } from 'suncalc'
+
+const ZAGREB = { lat: 45.815, lon: 15.982 }
+
+const REFRESH_MS = 60000
+
+export const SUN_DISTANCE = 40
+
+export interface SunState {
+  position: [number, number, number]
+  dayFactor: number
+  nightFactor: number
+  twilightFactor: number
+  goldenFactor: number
+}
+
+export interface MoonState {
+  position: [number, number, number]
+  light: number
+}
+
+interface SkyClock {
+  sun: SunState
+  moon: MoonState
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function smoothstep(x: number, min: number, max: number): number {
+  if (x <= min) return 0
+  if (x >= max) return 1
+  const t = (x - min) / (max - min)
+  return t * t * (3 - 2 * t)
+}
+
+const DEG = Math.PI / 180
+
+function directionFrom(altitudeDeg: number, azimuthDeg: number): [number, number, number] {
+  const alt = altitudeDeg * DEG
+  const az = azimuthDeg * DEG
+  const horizontal = Math.cos(alt)
+  return [Math.sin(az) * horizontal, Math.sin(alt), -Math.cos(az) * horizontal]
+}
+
+function computeSun(date: Date): SunState {
+  const raw = getPosition(date, ZAGREB.lat, ZAGREB.lon)
+  const altitude = raw.altitude * DEG
+
+  const dayFactor = smoothstep(altitude, -0.1, 0.14)
+  const nightFactor = 1 - smoothstep(altitude, -0.3, -0.08)
+  const twilightFactor = clamp(1 - dayFactor - nightFactor, 0, 1)
+  const goldenFactor = smoothstep(altitude, -0.08, 0.01) * (1 - smoothstep(altitude, 0.05, 0.2))
+
+  return {
+    position: directionFrom(raw.altitude, raw.azimuth),
+    dayFactor,
+    nightFactor,
+    twilightFactor,
+    goldenFactor,
+  }
+}
+
+function computeMoon(date: Date): MoonState {
+  const raw = getMoonPosition(date, ZAGREB.lat, ZAGREB.lon)
+  const altitude = raw.altitude * DEG
+  const { fraction } = getMoonIllumination(date)
+  const risen = smoothstep(altitude, -0.05, 0.28)
+
+  return {
+    position: directionFrom(raw.altitude, raw.azimuth),
+    light: risen * (0.18 + 0.82 * fraction),
+  }
+}
+
+function computeClock(): SkyClock {
+  const date = new Date()
+  return { sun: computeSun(date), moon: computeMoon(date) }
+}
+
+let snapshot = computeClock()
+let timer: ReturnType<typeof setInterval> | null = null
+const listeners = new Set<() => void>()
+
+function tick() {
+  snapshot = computeClock()
+  for (const listener of listeners) listener()
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  if (timer === null) timer = setInterval(tick, REFRESH_MS)
+  return () => {
+    listeners.delete(listener)
+    if (listeners.size === 0 && timer !== null) {
+      clearInterval(timer)
+      timer = null
+    }
+  }
+}
+
+const getClock = () => snapshot
+
+export function useSkyClock(): SkyClock {
+  return useSyncExternalStore(subscribe, getClock, getClock)
+}

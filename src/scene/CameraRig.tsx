@@ -1,0 +1,230 @@
+import { useEffect, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import * as THREE from 'three'
+import { rooms, PLAYER_START, EYE_HEIGHT } from '@/data/rooms'
+import { resolveMove, isInBounds, isIndoors } from '@/lib/collision'
+import { terrainHeightAt } from '@/lib/terrain'
+import { useGalleryStore } from '@/store/useGalleryStore'
+
+const START_POSITION = new THREE.Vector3(...PLAYER_START)
+const MOVE_SPEED = 3.4
+const FLY_SPEED = 7
+const FLY_LIFT = 5.5
+
+const LOOK_SENSITIVITY = 0.0028
+const EDGE_ZONE = 0.16
+const EDGE_TURN_SPEED = 1.5
+const PITCH_LIMIT = 1.1
+const KEY_TURN_SPEED = 1.6
+const LOOK_DAMPING = 9
+const DOUBLE_TAP_MS = 320
+
+interface Keys {
+  forward: boolean
+  back: boolean
+  left: boolean
+  right: boolean
+  turnLeft: boolean
+  turnRight: boolean
+  up: boolean
+  down: boolean
+}
+
+function setKey(keys: Keys, e: KeyboardEvent, value: boolean): boolean {
+  switch (e.code || e.key) {
+    case 'KeyW':
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      keys.forward = value
+      return true
+    case 'KeyS':
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      keys.back = value
+      return true
+    case 'KeyA':
+    case 'a':
+    case 'A':
+      keys.left = value
+      return true
+    case 'KeyD':
+    case 'd':
+    case 'D':
+      keys.right = value
+      return true
+    case 'ArrowLeft':
+      keys.turnLeft = value
+      return true
+    case 'ArrowRight':
+      keys.turnRight = value
+      return true
+    case 'KeyQ':
+    case 'q':
+    case 'Q':
+      keys.turnLeft = value
+      return false
+    case 'KeyE':
+    case 'e':
+    case 'E':
+      keys.turnRight = value
+      return false
+    case 'Space':
+    case ' ':
+      keys.up = value
+      return false
+    case 'ShiftLeft':
+    case 'ShiftRight':
+    case 'Shift':
+      keys.down = value
+      return false
+  }
+  return false
+}
+
+export function CameraRig() {
+  const { camera, gl } = useThree()
+  const keys = useRef<Keys>({
+    forward: false,
+    back: false,
+    left: false,
+    right: false,
+    turnLeft: false,
+    turnRight: false,
+    up: false,
+    down: false,
+  })
+  const cursor = useRef({ x: 0, y: 0, inside: false })
+  const target = useRef({ yaw: 0, pitch: 0 })
+  const look = useRef({ yaw: 0, pitch: 0 })
+  const flying = useRef(false)
+  const lastSpace = useRef(0)
+
+  useEffect(() => {
+    camera.rotation.order = 'YXZ'
+    camera.position.copy(START_POSITION)
+    camera.rotation.set(0, 0, 0)
+  }, [camera])
+
+  useEffect(() => {
+    const el = gl.domElement
+
+    const handleMove = (e: PointerEvent) => {
+      const rect = el.getBoundingClientRect()
+      cursor.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+      cursor.current.y = ((e.clientY - rect.top) / rect.height) * 2 - 1
+      cursor.current.inside = true
+
+      target.current.yaw -= (e.movementX ?? 0) * LOOK_SENSITIVITY
+      target.current.pitch = THREE.MathUtils.clamp(
+        target.current.pitch - (e.movementY ?? 0) * LOOK_SENSITIVITY,
+        -PITCH_LIMIT,
+        PITCH_LIMIT,
+      )
+    }
+    const handleLeave = () => {
+      cursor.current.inside = false
+    }
+
+    el.addEventListener('pointermove', handleMove)
+    el.addEventListener('pointerleave', handleLeave)
+    return () => {
+      el.removeEventListener('pointermove', handleMove)
+      el.removeEventListener('pointerleave', handleLeave)
+    }
+  }, [gl])
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      const isSpace = e.code === 'Space' || e.key === ' '
+      if (isSpace) {
+        e.preventDefault()
+        if (!e.repeat) {
+          const now = performance.now()
+          if (now - lastSpace.current < DOUBLE_TAP_MS) flying.current = !flying.current
+          lastSpace.current = now
+        }
+      }
+      if (setKey(keys.current, e, true)) useGalleryStore.getState().setHasMoved()
+    }
+    const up = (e: KeyboardEvent) => setKey(keys.current, e, false)
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    return () => {
+      window.removeEventListener('keydown', down)
+      window.removeEventListener('keyup', up)
+    }
+  }, [])
+
+  useFrame((_, delta) => {
+    const { turnLeft, turnRight } = keys.current
+
+    if (cursor.current.inside) {
+      const overflow = Math.abs(cursor.current.x) - (1 - EDGE_ZONE)
+      if (overflow > 0) {
+        const strength = Math.min(overflow / EDGE_ZONE, 1)
+        target.current.yaw -= Math.sign(cursor.current.x) * strength * EDGE_TURN_SPEED * delta
+      }
+    }
+    if (turnLeft) target.current.yaw += KEY_TURN_SPEED * delta
+    if (turnRight) target.current.yaw -= KEY_TURN_SPEED * delta
+
+    look.current.yaw = THREE.MathUtils.damp(look.current.yaw, target.current.yaw, LOOK_DAMPING, delta)
+    look.current.pitch = THREE.MathUtils.damp(look.current.pitch, target.current.pitch, LOOK_DAMPING, delta)
+    camera.rotation.set(look.current.pitch, look.current.yaw, 0)
+
+    const { forward, back, left, right, up, down } = keys.current
+    const isFlying = flying.current
+
+    if (forward || back || left || right) {
+      const dir = new THREE.Vector3()
+      camera.getWorldDirection(dir)
+      dir.y = 0
+      dir.normalize()
+      const rightVec = new THREE.Vector3().crossVectors(dir, camera.up).normalize()
+
+      const move = new THREE.Vector3()
+      if (forward) move.add(dir)
+      if (back) move.sub(dir)
+      if (right) move.add(rightVec)
+      if (left) move.sub(rightVec)
+
+      if (move.lengthSq() > 0) {
+        move.normalize().multiplyScalar((isFlying ? FLY_SPEED : MOVE_SPEED) * delta)
+        if (isFlying) {
+          camera.position.x += move.x
+          camera.position.z += move.z
+        } else {
+          const [nx, nz] = resolveMove(rooms, camera.position.x, camera.position.z, move.x, move.z)
+          camera.position.x = nx
+          camera.position.z = nz
+        }
+      }
+    }
+
+    if (!isFlying && !isInBounds(rooms, camera.position.x, camera.position.z)) {
+      camera.position.copy(START_POSITION)
+      target.current.yaw = 0
+      target.current.pitch = 0
+      look.current.yaw = 0
+      look.current.pitch = 0
+      camera.rotation.set(0, 0, 0)
+      return
+    }
+
+    const groundY = isIndoors(rooms, camera.position.x, camera.position.z)
+      ? 0
+      : terrainHeightAt(camera.position.x, camera.position.z)
+
+    if (isFlying) {
+      if (up) camera.position.y += FLY_LIFT * delta
+      if (down) camera.position.y -= FLY_LIFT * delta
+      camera.position.y = Math.max(camera.position.y, groundY + 0.6)
+    } else {
+      camera.position.y = THREE.MathUtils.damp(camera.position.y, groundY + EYE_HEIGHT, 12, delta)
+    }
+  })
+
+  return null
+}
