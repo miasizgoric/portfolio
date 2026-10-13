@@ -18,6 +18,8 @@ const PITCH_LIMIT = 1.1
 const KEY_TURN_SPEED = 1.6
 const LOOK_DAMPING = 9
 const DOUBLE_TAP_MS = 320
+const TOUCH_LOOK_SENSITIVITY = 0.0042
+const STICK_RADIUS = 56
 
 interface Keys {
   forward: boolean
@@ -98,6 +100,7 @@ export function CameraRig() {
   const cursor = useRef({ x: 0, y: 0, inside: false })
   const target = useRef({ yaw: 0, pitch: 0 })
   const look = useRef({ yaw: 0, pitch: 0 })
+  const stick = useRef({ x: 0, y: 0 })
   const flying = useRef(false)
   const lastSpace = useRef(0)
 
@@ -110,7 +113,61 @@ export function CameraRig() {
   useEffect(() => {
     const el = gl.domElement
 
+    // Touch: the left half of the screen is a floating move stick, the right half drags to look.
+    const touches = new Map<number, { role: 'move' | 'look'; x: number; y: number }>()
+    const updateStick = (id: number, x: number, y: number) => {
+      const t = touches.get(id)
+      if (!t) return
+      const rawX = x - t.x
+      const rawY = y - t.y
+      const len = Math.hypot(rawX, rawY)
+      const k = len > STICK_RADIUS ? STICK_RADIUS / len : 1
+      const dx = rawX * k
+      const dy = rawY * k
+      stick.current.x = dx / STICK_RADIUS
+      stick.current.y = dy / STICK_RADIUS
+      useGalleryStore.getState().setStick({ ox: t.x, oy: t.y, dx, dy })
+    }
+    const handleDown = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') return
+      const role = e.clientX < window.innerWidth / 2 ? 'move' : 'look'
+      touches.set(e.pointerId, { role, x: e.clientX, y: e.clientY })
+      el.setPointerCapture(e.pointerId)
+      useGalleryStore.getState().setHasMoved()
+      if (role === 'move') updateStick(e.pointerId, e.clientX, e.clientY)
+    }
+    const handleTouchMove = (e: PointerEvent) => {
+      const t = touches.get(e.pointerId)
+      if (!t) return
+      if (t.role === 'move') {
+        updateStick(e.pointerId, e.clientX, e.clientY)
+      } else {
+        target.current.yaw -= (e.clientX - t.x) * TOUCH_LOOK_SENSITIVITY
+        target.current.pitch = THREE.MathUtils.clamp(
+          target.current.pitch - (e.clientY - t.y) * TOUCH_LOOK_SENSITIVITY,
+          -PITCH_LIMIT,
+          PITCH_LIMIT,
+        )
+        t.x = e.clientX
+        t.y = e.clientY
+      }
+    }
+    const handleUp = (e: PointerEvent) => {
+      const t = touches.get(e.pointerId)
+      if (!t) return
+      touches.delete(e.pointerId)
+      if (t.role === 'move') {
+        stick.current.x = 0
+        stick.current.y = 0
+        useGalleryStore.getState().setStick(null)
+      }
+    }
+
     const handleMove = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') {
+        handleTouchMove(e)
+        return
+      }
       const rect = el.getBoundingClientRect()
       cursor.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
       cursor.current.y = ((e.clientY - rect.top) / rect.height) * 2 - 1
@@ -127,9 +184,15 @@ export function CameraRig() {
       cursor.current.inside = false
     }
 
+    el.addEventListener('pointerdown', handleDown)
+    el.addEventListener('pointerup', handleUp)
+    el.addEventListener('pointercancel', handleUp)
     el.addEventListener('pointermove', handleMove)
     el.addEventListener('pointerleave', handleLeave)
     return () => {
+      el.removeEventListener('pointerdown', handleDown)
+      el.removeEventListener('pointerup', handleUp)
+      el.removeEventListener('pointercancel', handleUp)
       el.removeEventListener('pointermove', handleMove)
       el.removeEventListener('pointerleave', handleLeave)
     }
@@ -177,7 +240,10 @@ export function CameraRig() {
     const { forward, back, left, right, up, down } = keys.current
     const isFlying = flying.current
 
-    if (forward || back || left || right) {
+    const { x: stickX, y: stickY } = stick.current
+    const stickActive = stickX !== 0 || stickY !== 0
+
+    if (forward || back || left || right || stickActive) {
       const dir = new THREE.Vector3()
       camera.getWorldDirection(dir)
       dir.y = 0
@@ -189,9 +255,11 @@ export function CameraRig() {
       if (back) move.sub(dir)
       if (right) move.add(rightVec)
       if (left) move.sub(rightVec)
+      if (stickActive) move.addScaledVector(dir, -stickY).addScaledVector(rightVec, stickX)
 
       if (move.lengthSq() > 0) {
-        move.normalize().multiplyScalar((isFlying ? FLY_SPEED : MOVE_SPEED) * delta)
+        if (move.lengthSq() > 1) move.normalize()
+        move.multiplyScalar((isFlying ? FLY_SPEED : MOVE_SPEED) * delta)
         if (isFlying) {
           camera.position.x += move.x
           camera.position.z += move.z

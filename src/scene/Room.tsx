@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { OUTSIDE, type Room as RoomData, type Wall } from '@/data/rooms'
 import { buildWallSegments, wallPointToWorld, getWallInfo } from '@/lib/roomGeometry'
 import { createWoodFloorTextures, getRockTextures } from '@/lib/proceduralTextures'
+import { useSkyClock } from '@/lib/sun'
 import { Artwork } from './Artwork'
 
 const SOLID_THICKNESS = 0.2
@@ -201,6 +202,9 @@ function Roof({ room }: { room: RoomData }) {
 }
 
 function CeilingLights({ room }: { room: RoomData }) {
+  const { sun } = useSkyClock()
+  // Daylight floods the glass pavilion; the lamps only need to read as switched on, not carry the room.
+  const glow = 0.12 + 0.88 * (1 - sun.dayFactor)
   const [cx, floorY, cz] = room.center
   const cols = Math.max(1, Math.round(room.width / 4.5))
   const rows = Math.max(1, Math.round(room.depth / 4.5))
@@ -239,7 +243,7 @@ function CeilingLights({ room }: { room: RoomData }) {
             <meshStandardMaterial
               color="#fdf6e6"
               emissive={LAMP_TONE}
-              emissiveIntensity={1.9}
+              emissiveIntensity={0.5 + 1.4 * glow}
               roughness={0.4}
             />
           </mesh>
@@ -250,7 +254,7 @@ function CeilingLights({ room }: { room: RoomData }) {
         <pointLight
           key={`lamp-${i}`}
           position={[x, y - 0.4, z]}
-          intensity={LAMP_INTENSITY}
+          intensity={LAMP_INTENSITY * glow}
           distance={LAMP_REACH}
           decay={2}
           color={LAMP_TONE}

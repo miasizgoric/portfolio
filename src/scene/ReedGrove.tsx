@@ -20,7 +20,24 @@ import { FOOTPRINT, SEA, getTerrainField } from '@/lib/terrain'
 import { useWeather } from '@/lib/weather'
 
 const CLEARANCE = 2.6
+const CHUNKS = {
+  trunks: { cell: 24, castShadow: true },
+  farTrunks: { cell: 48 },
+  flares: { cell: 24, receiveShadow: true },
+  branches: { cell: 24 },
+  canopy: { cell: 24, castShadow: true },
+  farCanopy: { cell: 48 },
+  fronds: { cell: 16 },
+  blades: { cell: 12 },
+} satisfies Record<string, ChunkOptions>
+
 const BARK_NORMAL_SCALE = new THREE.Vector2(1.4, 1.4)
+
+// Crowns reach several metres sideways; foliage that would end up inside the house below the
+// roofline is dropped instead of clearing the whole forest around it.
+const ROOF_TOP = 7.5
+const intrudesHouse = (x: number, y: number, z: number, radius: number) =>
+  y - radius < ROOF_TOP && distanceToFootprint(x, z, FOOTPRINT) < radius
 
 const PATH_CLEARANCE = 0.05
 const ENTRANCE = { minX: -4.2, maxX: 4.2, minZ: 8.5, maxZ: 19 }
@@ -39,8 +56,29 @@ interface Layer {
   buffer: InstanceBuffer
 }
 
-function toInstancedMesh({ geometry, material, buffer }: Layer): THREE.InstancedMesh {
-  const mesh = new THREE.InstancedMesh(geometry, material, buffer.count)
+interface ChunkOptions {
+  cell: number
+  castShadow?: boolean
+  receiveShadow?: boolean
+}
+
+// Wind sways geometry by up to about a metre beyond its rest bounds.
+const WIND_MARGIN = 1.5
+
+// One InstancedMesh per grid cell so the renderer can cull whole patches instead of
+// drawing every instance in the world each frame (and again in the shadow pass).
+function toInstancedChunks({ geometry, material, buffer }: Layer, options: ChunkOptions): THREE.Group {
+  const group = new THREE.Group()
+  const cells = new Map<string, number[]>()
+  for (let i = 0; i < buffer.count; i++) {
+    const cx = Math.floor(buffer.position[i * 3] / options.cell)
+    const cz = Math.floor(buffer.position[i * 3 + 2] / options.cell)
+    const key = cx + ':' + cz
+    const list = cells.get(key)
+    if (list) list.push(i)
+    else cells.set(key, [i])
+  }
+
   const matrix = new THREE.Matrix4()
   const position = new THREE.Vector3()
   const quaternion = new THREE.Quaternion()
@@ -48,22 +86,33 @@ function toInstancedMesh({ geometry, material, buffer }: Layer): THREE.Instanced
   const scale = new THREE.Vector3()
   const color = new THREE.Color()
 
-  for (let i = 0; i < buffer.count; i++) {
-    const o = i * 3
-    position.set(buffer.position[o], buffer.position[o + 1], buffer.position[o + 2])
-    euler.set(buffer.rotation[o], buffer.rotation[o + 1], buffer.rotation[o + 2])
-    quaternion.setFromEuler(euler)
-    scale.set(buffer.scale[o], buffer.scale[o + 1], buffer.scale[o + 2])
-    mesh.setMatrixAt(i, matrix.compose(position, quaternion, scale))
-    if (buffer.color) {
-      color.setRGB(buffer.color[o], buffer.color[o + 1], buffer.color[o + 2])
-      mesh.setColorAt(i, color)
-    }
+  for (const indices of cells.values()) {
+    const mesh = new THREE.InstancedMesh(geometry, material, indices.length)
+    indices.forEach((source, slot) => {
+      const o = source * 3
+      position.set(buffer.position[o], buffer.position[o + 1], buffer.position[o + 2])
+      euler.set(buffer.rotation[o], buffer.rotation[o + 1], buffer.rotation[o + 2])
+      quaternion.setFromEuler(euler)
+      scale.set(buffer.scale[o], buffer.scale[o + 1], buffer.scale[o + 2])
+      mesh.setMatrixAt(slot, matrix.compose(position, quaternion, scale))
+      if (buffer.color) {
+        color.setRGB(buffer.color[o], buffer.color[o + 1], buffer.color[o + 2])
+        mesh.setColorAt(slot, color)
+      }
+    })
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    mesh.computeBoundingSphere()
+    if (mesh.boundingSphere) mesh.boundingSphere.radius += WIND_MARGIN
+    mesh.castShadow = options.castShadow ?? false
+    mesh.receiveShadow = options.receiveShadow ?? false
+    group.add(mesh)
   }
-  mesh.instanceMatrix.needsUpdate = true
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-  mesh.frustumCulled = false
-  return mesh
+  return group
+}
+
+function disposeChunks(group: THREE.Group) {
+  for (const child of group.children) (child as THREE.InstancedMesh).dispose()
 }
 
 function buildGrove() {
@@ -87,10 +136,12 @@ function buildGrove() {
     return field.height(x, z) < SEA.level + 3
   }
 
-  const trunkWriter = createInstanceWriter(2600, true)
+  // Far trees lie outside the 45 m shadow frustum; keeping them in their own meshes lets the
+  // shadow pass skip them instead of rasterising thousands of instances that cannot land on screen.
+  const trunkWriters = { near: createInstanceWriter(1000, true), far: createInstanceWriter(1600, true) }
   const flareWriter = createInstanceWriter(1000, true)
   const branchWriter = createInstanceWriter(6400, true)
-  const canopyWriter = createInstanceWriter(20000, true)
+  const canopyWriters = { near: createInstanceWriter(14000, true), far: createInstanceWriter(7000, true) }
   const trunkColor = new THREE.Color()
   const leafColor = new THREE.Color()
 
@@ -100,6 +151,8 @@ function buildGrove() {
   ]
 
   for (const band of bands) {
+    const trunkWriter = band.near ? trunkWriters.near : trunkWriters.far
+    const canopyWriter = band.near ? canopyWriters.near : canopyWriters.far
     const points = scatter({
       count: band.count,
       seed: band.seed,
@@ -157,11 +210,13 @@ function buildGrove() {
           const tilt = Math.PI * (0.2 + (1 - along) * 0.3 + r() * 0.08)
           const len = height * (0.13 + (1 - along) * 0.2 + r() * 0.07)
           const y = baseY + height * along
-          branchWriter.push(p.x, y, p.z, tilt, angle, 0, len, len, len, trunkColor)
-
           const tipY = len * (Math.cos(tilt) - 0.36 * Math.sin(tilt))
           const tipR = len * (Math.sin(tilt) + 0.36 * Math.cos(tilt)) * 0.82
           const size = len * (0.68 + r() * 0.42)
+          const tipX = p.x + Math.sin(angle) * tipR
+          const tipZ = p.z + Math.cos(angle) * tipR
+          if (intrudesHouse(tipX, y + tipY, tipZ, size) || intrudesHouse(p.x, y, p.z, len * 0.4)) continue
+          branchWriter.push(p.x, y, p.z, tilt, angle, 0, len, len, len, trunkColor)
           leafColor.setHSL(0.24 + r() * 0.08, 0.3 + r() * 0.2, 0.24 + r() * 0.16)
           canopyWriter.push(
             p.x + Math.sin(angle) * tipR,
@@ -185,6 +240,7 @@ function buildGrove() {
         const drop = height * 0.04 + r() * height * 0.1
         const reach = radius * 0.8 + size * (0.12 + r() * 0.3)
         leafColor.setHSL(0.24 + r() * 0.08, 0.3 + r() * 0.2, 0.28 + r() * 0.18)
+        if (intrudesHouse(p.x + Math.cos(angle) * reach, crownY - drop - size * 0.35, p.z + Math.sin(angle) * reach, size)) continue
         canopyWriter.push(
           p.x + Math.cos(angle) * reach,
           crownY - drop - size * 0.35,
@@ -276,10 +332,12 @@ function buildGrove() {
   }
 
   return {
-    trunks: trunkWriter.finish(),
+    trunks: trunkWriters.near.finish(),
+    farTrunks: trunkWriters.far.finish(),
     flares: flareWriter.finish(),
     branches: branchWriter.finish(),
-    canopy: canopyWriter.finish(),
+    canopy: canopyWriters.near.finish(),
+    farCanopy: canopyWriters.far.finish(),
     fronds: frondWriter.finish(),
     blades: bladeWriter.finish(),
   }
@@ -333,54 +391,64 @@ export function ReedGrove() {
     })
     applyWind(canopyMaterial, 'grove-canopy', { amplitude: 0.09, speed: 0.55, stiffness: 2.4, translucency: 1 })
 
-    const trunks = toInstancedMesh({
+    const trunks = toInstancedChunks({
       geometry: makeTrunkGeometry(10, 7, 0.42, true),
       material: trunkMaterial,
       buffer: data.trunks,
-    })
-    trunks.castShadow = true
+    }, CHUNKS.trunks)
 
-    const flares = toInstancedMesh({
+    const flares = toInstancedChunks({
       geometry: makeTrunkGeometry(10, 2, 0.32, true),
       material: trunkMaterial,
       buffer: data.flares,
-    })
-    flares.receiveShadow = true
+    }, CHUNKS.flares)
 
-    const branches = toInstancedMesh({
+    const branches = toInstancedChunks({
       geometry: makeBranchGeometry(9173, 0.034, 0.36),
       material: trunkMaterial,
       buffer: data.branches,
-    })
+    }, CHUNKS.branches)
 
-    const canopy = toInstancedMesh({
+    const canopy = toInstancedChunks({
       geometry: makeFrondGeometry(3, 5, 0.7),
       material: canopyMaterial,
       buffer: data.canopy,
-    })
-    canopy.castShadow = true
+    }, CHUNKS.canopy)
 
-    const fronds = toInstancedMesh({
+    const fronds = toInstancedChunks({
       geometry: makeFrondGeometry(3, 5, 0.55),
       material: frondMaterial,
       buffer: data.fronds,
-    })
+    }, CHUNKS.fronds)
 
-    const blades = toInstancedMesh({
+    const blades = toInstancedChunks({
       geometry: makeBladeGeometry(7319, 12, 3),
       material: bladeMaterial,
       buffer: data.blades,
-    })
+    }, CHUNKS.blades)
 
-    return { trunks, flares, branches, canopy, fronds, blades }
+    const farTrunks = toInstancedChunks({
+      geometry: makeTrunkGeometry(10, 7, 0.42, true),
+      material: trunkMaterial,
+      buffer: data.farTrunks,
+    }, CHUNKS.farTrunks)
+
+    const farCanopy = toInstancedChunks({
+      geometry: makeFrondGeometry(3, 5, 0.7),
+      material: canopyMaterial,
+      buffer: data.farCanopy,
+    }, CHUNKS.farCanopy)
+
+    return { trunks, farTrunks, flares, branches, canopy, farCanopy, fronds, blades }
   }, [frondTexture, bark])
 
   useEffect(() => {
     return () => {
-      for (const mesh of Object.values(meshes)) {
-        mesh.geometry.dispose()
-        ;(mesh.material as THREE.Material).dispose()
-        mesh.dispose()
+      for (const group of Object.values(meshes)) {
+        const first = group.children[0] as THREE.InstancedMesh | undefined
+        first?.geometry.dispose()
+        ;(first?.material as THREE.Material | undefined)?.dispose()
+        disposeChunks(group)
       }
       frondTexture.dispose()
     }
@@ -393,9 +461,11 @@ export function ReedGrove() {
   return (
     <group>
       <primitive object={meshes.trunks} />
+      <primitive object={meshes.farTrunks} />
       <primitive object={meshes.flares} />
       <primitive object={meshes.branches} />
       <primitive object={meshes.canopy} />
+      <primitive object={meshes.farCanopy} />
       <primitive object={meshes.fronds} />
       <primitive object={meshes.blades} />
     </group>

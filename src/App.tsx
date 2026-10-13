@@ -1,8 +1,10 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { Wordmark } from '@/ui/Wordmark'
 import { Sidebar } from '@/ui/Sidebar'
+import { TouchStick } from '@/ui/TouchStick'
 import { MyWorkPage } from '@/ui/MyWorkPage'
+import { NoWebGL, SceneBoundary, canRunWebGL } from '@/ui/NoWebGL'
 import { useRoute } from '@/lib/route'
 
 const MY_WORK = '/my-work'
@@ -11,13 +13,21 @@ const Experience = lazy(() => import('@/scene/Experience').then((m) => ({ defaul
 
 function App() {
   const [path, navigate] = useRoute()
+  const [webgl] = useState(canRunWebGL)
 
   return (
-    <div className="relative h-screen w-screen bg-black">
-      <Suspense fallback={null}>
-        <Experience />
-      </Suspense>
+    <div className="relative h-dvh w-screen bg-black">
+      {webgl ? (
+        <SceneBoundary>
+          <Suspense fallback={null}>
+            <Experience />
+          </Suspense>
+        </SceneBoundary>
+      ) : (
+        <NoWebGL />
+      )}
       <Wordmark />
+      <TouchStick />
       <Sidebar onOpenMyWork={() => navigate(MY_WORK)} />
 
       <AnimatePresence>

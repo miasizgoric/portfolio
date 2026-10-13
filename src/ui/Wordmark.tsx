@@ -5,7 +5,9 @@ import { selectIntroVisible, useGalleryStore } from '@/store/useGalleryStore'
 import { ScrambleText } from './ScrambleText'
 
 const SOFT_EASE = [0.22, 1, 0.36, 1] as const
-const HINT_WORDS = ['use wasd to move', 'use arrows to move', 'double-tap space to fly']
+const KEY_HINTS = ['use wasd to move', 'use arrows to move', 'double-tap space to fly']
+const TOUCH_HINTS = ['drag left to move', 'drag right to look']
+const HINT_WORDS = window.matchMedia('(pointer: coarse)').matches ? TOUCH_HINTS : KEY_HINTS
 const HOLD_MS = 4200
 
 export function Wordmark() {

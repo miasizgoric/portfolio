@@ -1,6 +1,15 @@
 import { create } from 'zustand'
 
+export interface TouchStick {
+  ox: number
+  oy: number
+  dx: number
+  dy: number
+}
+
 interface GalleryState {
+  stick: TouchStick | null
+  setStick: (stick: TouchStick | null) => void
   hasMoved: boolean
   introHeld: boolean
   sceneReady: boolean
@@ -10,6 +19,8 @@ interface GalleryState {
 }
 
 export const useGalleryStore = create<GalleryState>((set) => ({
+  stick: null,
+  setStick: (stick) => set({ stick }),
   hasMoved: false,
   introHeld: true,
   sceneReady: false,

@@ -26,7 +26,7 @@ const PATCH_LAYERS = [
 ]
 
 const DEEP_NIGHT = new THREE.Color('#050d15')
-const AIRGLOW = new THREE.Color('#2a4a78')
+const AIRGLOW = new THREE.Color('#0e1a2e')
 const DEEP_DAY = new THREE.Color('#123a44')
 
 interface Wave {
