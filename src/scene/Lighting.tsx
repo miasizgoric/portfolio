@@ -31,8 +31,10 @@ export function Lighting() {
   const ambient = 0.05 + sun.twilightFactor * 0.08 + sun.dayFactor * 0.1
 
   useFrame(({ gl }) => {
-    tick.current = (tick.current + 1) % SHADOW_EVERY
+    // The shadow map is updated by hand, so the very first frame must render it; otherwise
+    // materials sample a shadow texture that does not exist yet.
     gl.shadowMap.needsUpdate = tick.current === 0
+    tick.current = (tick.current + 1) % SHADOW_EVERY
 
     const light = key.current
     if (!light) return
