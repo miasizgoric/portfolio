@@ -6,6 +6,8 @@ import { TouchStick } from '@/ui/TouchStick'
 import { MyWorkPage } from '@/ui/MyWorkPage'
 import { NoWebGL, SceneBoundary, canRunWebGL } from '@/ui/NoWebGL'
 import { useRoute } from '@/lib/route'
+import { DEBUG } from '@/lib/diagnostics'
+import { DebugOverlay } from '@/ui/DebugOverlay'
 import { startWorld } from '@/world/useWorld'
 
 const MY_WORK = '/my-work'
@@ -31,6 +33,7 @@ function App() {
       )}
       <Wordmark />
       <TouchStick />
+      {DEBUG && <DebugOverlay />}
       <Sidebar onOpenMyWork={() => navigate(MY_WORK)} />
 
       <AnimatePresence>

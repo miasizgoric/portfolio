@@ -47,9 +47,13 @@ function useSceneWarmup(mounted: boolean) {
   useEffect(() => {
     if (!mounted) return
     let live = true
+    let done = false
     const offscreen = new THREE.WebGLRenderTarget(1, 1)
     gl.setRenderTarget(offscreen)
     const finish = async () => {
+      if (done) return
+      done = true
+      clearTimeout(failsafe)
       gl.setRenderTarget(null)
       offscreen.dispose()
       for (let i = 0; i < PREROLL_FRAMES && live; i++) {
@@ -60,9 +64,12 @@ function useSceneWarmup(mounted: boolean) {
       setFrameloop('always')
       useGalleryStore.getState().setSceneReady()
     }
+    // A driver that never reports its shaders as compiled must not leave the scene paused forever.
+    const failsafe = window.setTimeout(finish, 8000)
     gl.compileAsync(scene, camera).then(finish, finish)
     return () => {
       live = false
+      clearTimeout(failsafe)
     }
   }, [mounted, gl, scene, camera, setFrameloop, advance])
 }
