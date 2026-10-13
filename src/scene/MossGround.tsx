@@ -1,140 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { createMossTextures, getRockTextures, type SurfaceTextures } from '@/lib/proceduralTextures'
-import { makeBoulderGeometry } from '@/lib/grove'
-import { fbm2, makeNoise2D, smoothstep } from '@/lib/terrainNoise'
-import { getTerrainField, SEA, TERRAIN_RADIUS, type TerrainField } from '@/lib/terrain'
-
-const RINGS = 168
-const SECTORS = 192
-const INNER_RADIUS = 1.5
-
-const MOSS_DEEP = new THREE.Color('#4d6340')
-const MOSS_LIT = new THREE.Color('#6f9159')
-const ROCK_DARK = new THREE.Color('#4a5148')
-const ROCK_PALE = new THREE.Color('#767a6a')
-const PATH_TONE = new THREE.Color('#7b6150')
-
-const LIMESTONE = new THREE.Color('#cdbfad')
-const LIMESTONE_WARM = new THREE.Color('#c29f76')
-const LIMESTONE_SHADE = new THREE.Color('#8d8579')
-const WET_ROCK = new THREE.Color('#3c3e3a')
-
-const TIDE_BAND = 2.4
-
-function buildTerrainGeometry(field: TerrainField) {
-  const vertexCount = (RINGS + 1) * (SECTORS + 1)
-  const positions = new Float32Array(vertexCount * 3)
-  const colors = new Float32Array(vertexCount * 3)
-  const rockiness = new Float32Array(vertexCount)
-  const uvs = new Float32Array(vertexCount * 2)
-  const indices = new Uint32Array(RINGS * SECTORS * 6)
-
-  const stain = makeNoise2D(40519)
-  const color = new THREE.Color()
-  const rock = new THREE.Color()
-  const stone = new THREE.Color()
-
-  const heights = new Float32Array(vertexCount)
-  const radii = new Float32Array(RINGS + 1)
-  for (let r = 0; r <= RINGS; r++) {
-    const t = r / RINGS
-    radii[r] = INNER_RADIUS + (TERRAIN_RADIUS - INNER_RADIUS) * t * t
-  }
-
-  for (let r = 0; r <= RINGS; r++) {
-    const radius = radii[r]
-    for (let s = 0; s <= SECTORS; s++) {
-      const theta = (s / SECTORS) * Math.PI * 2
-      const x = Math.cos(theta) * radius
-      const z = Math.sin(theta) * radius
-      const i = r * (SECTORS + 1) + s
-      const y = field.height(x, z)
-      heights[i] = y
-      positions[i * 3] = x
-      positions[i * 3 + 1] = y
-      positions[i * 3 + 2] = z
-      uvs[i * 2] = x * 0.06
-      uvs[i * 2 + 1] = z * 0.06
-    }
-  }
-
-  const sectorStep = (Math.PI * 2) / SECTORS
-  for (let r = 0; r <= RINGS; r++) {
-    const radius = radii[r]
-    const inner = radii[Math.max(r - 1, 0)]
-    const outer = radii[Math.min(r + 1, RINGS)]
-    const radialSpan = Math.max(outer - inner, 0.01)
-    const arcSpan = Math.max(radius * sectorStep * 2, 0.01)
-    for (let s = 0; s <= SECTORS; s++) {
-      const theta = (s / SECTORS) * Math.PI * 2
-      const x = Math.cos(theta) * radius
-      const z = Math.sin(theta) * radius
-      const i = r * (SECTORS + 1) + s
-      const y = heights[i]
-
-      const up = heights[Math.max(r - 1, 0) * (SECTORS + 1) + s]
-      const down = heights[Math.min(r + 1, RINGS) * (SECTORS + 1) + s]
-      const left = heights[r * (SECTORS + 1) + (s === 0 ? SECTORS - 1 : s - 1)]
-      const right = heights[r * (SECTORS + 1) + (s === SECTORS ? 1 : s + 1)]
-      const gradient = Math.hypot((down - up) / radialSpan, (right - left) / arcSpan)
-      const slope = gradient / (1 + gradient)
-      const moss = field.moss(x, z, slope, y)
-
-      rock.copy(ROCK_DARK).lerp(ROCK_PALE, slope)
-      color.copy(MOSS_DEEP).lerp(MOSS_LIT, moss)
-      color.lerp(rock, 1 - moss)
-      const path = field.onPath(x, z)
-      if (path > 0) {
-        const tread = smoothstep(0.4, 0.86, path)
-        const scuff = 0.5 + 0.5 * fbm2(stain, x * 0.32, z * 0.32, 2)
-        color.lerp(PATH_TONE, tread * (0.56 + scuff * 0.34))
-      }
-
-      const coast = field.coast(x, z)
-      const bare = Math.max(
-        smoothstep(0.6, 0.92, slope) * (1 - moss * 0.8),
-        coast * smoothstep(0.16, 0.4, slope),
-        smoothstep(0.9, 1, coast),
-      )
-      if (bare > 0) {
-        const warm = smoothstep(0.1, 0.6, fbm2(stain, x * 0.045, z * 0.045 + y * 0.08, 3))
-        const shade = smoothstep(-0.2, 0.5, fbm2(stain, x * 0.11 + 31.7, y * 0.14, 2))
-        stone.copy(LIMESTONE).lerp(LIMESTONE_WARM, warm * 0.8).lerp(LIMESTONE_SHADE, shade * 0.6)
-        const tide = 1 - smoothstep(SEA.level, SEA.level + TIDE_BAND, y)
-        stone.lerp(WET_ROCK, tide * 0.85)
-        color.lerp(stone, bare)
-      }
-      rockiness[i] = bare
-
-      colors[i * 3] = color.r
-      colors[i * 3 + 1] = color.g
-      colors[i * 3 + 2] = color.b
-    }
-  }
-  let o = 0
-  for (let r = 0; r < RINGS; r++) {
-    for (let s = 0; s < SECTORS; s++) {
-      const a = r * (SECTORS + 1) + s
-      const b = a + SECTORS + 1
-      indices[o++] = a
-      indices[o++] = a + 1
-      indices[o++] = b
-      indices[o++] = a + 1
-      indices[o++] = b + 1
-      indices[o++] = b
-    }
-  }
-
-  const geo = new THREE.BufferGeometry()
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-  geo.setAttribute('rockiness', new THREE.BufferAttribute(rockiness, 1))
-  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
-  geo.setIndex(new THREE.BufferAttribute(indices, 1))
-  geo.computeVertexNormals()
-  return geo
-}
+import type { SurfaceTextures } from '@/lib/proceduralTextures'
+import type { World } from '@/world/useWorld'
 
 const GROUND_VERTEX_PARS = `
 attribute float rockiness;
@@ -259,53 +126,45 @@ function makeGroundMaterial(moss: SurfaceTextures, rock: SurfaceTextures) {
   return material
 }
 
-function buildOutcropMeshes(field: TerrainField) {
-  const bodies: { geometry: THREE.BufferGeometry; matrix: THREE.Matrix4 }[] = []
-  const matrix = new THREE.Matrix4()
-  const quat = new THREE.Quaternion()
-  const euler = new THREE.Euler()
-  const pos = new THREE.Vector3()
-  const scale = new THREE.Vector3()
+const BOULDER_NORMAL_SCALE = new THREE.Vector2(1.1, 1.1)
 
-  for (const outcrop of field.outcrops) {
-    for (let b = 0; b < outcrop.bodies; b++) {
-      const seed = outcrop.seed + b * 977
-      const angle = (b / outcrop.bodies) * Math.PI * 2 + outcrop.spin
-      const spread = outcrop.radius * (0.18 + ((seed % 53) / 53) * 0.5)
-      const x = outcrop.x + Math.cos(angle) * spread
-      const z = outcrop.z + Math.sin(angle) * spread
-      const size = outcrop.rise * (0.55 + ((seed % 31) / 31) * 0.75)
-
-      pos.set(x, field.height(x, z) + size * 0.32, z)
-      euler.set(outcrop.tilt * 0.6, angle + outcrop.spin, outcrop.tilt)
-      quat.setFromEuler(euler)
-      scale.set(size, size * (0.62 + ((seed % 17) / 17) * 0.4), size)
-
-      bodies.push({
-        geometry: makeBoulderGeometry(seed, 2),
-        matrix: matrix.clone().compose(pos, quat, scale),
-      })
-    }
-  }
-  return bodies
+function terrainGeometry(world: World) {
+  const { terrain } = world
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.BufferAttribute(terrain.position, 3))
+  geo.setAttribute('normal', new THREE.BufferAttribute(terrain.normal, 3))
+  geo.setAttribute('color', new THREE.BufferAttribute(terrain.color, 3))
+  geo.setAttribute('rockiness', new THREE.BufferAttribute(terrain.rockiness, 1))
+  geo.setAttribute('uv', new THREE.BufferAttribute(terrain.uv, 2))
+  geo.setIndex(new THREE.BufferAttribute(terrain.index, 1))
+  return geo
 }
 
-export function MossGround() {
-  const field = useMemo(() => getTerrainField(), [])
-  const geometry = useMemo(() => buildTerrainGeometry(field), [field])
-  const outcrops = useMemo(() => buildOutcropMeshes(field), [field])
-  const moss = useMemo(() => createMossTextures(), [])
-  const rock = useMemo(() => getRockTextures(), [])
-  const ground = useMemo(() => makeGroundMaterial(moss, rock), [moss, rock])
+function boulderBodies(world: World) {
+  return world.boulders.map((b) => {
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(b.position, 3))
+    geometry.setAttribute('normal', new THREE.BufferAttribute(b.normal, 3))
+    geometry.setAttribute('uv', new THREE.BufferAttribute(b.uv, 2))
+    geometry.setAttribute('color', new THREE.BufferAttribute(b.color, 3))
+    geometry.computeBoundingSphere()
+    return { geometry, matrix: new THREE.Matrix4().fromArray(b.matrix) }
+  })
+}
+
+export function MossGround({ world }: { world: World }) {
+  const rock = world.rockTextures
+  const geometry = useMemo(() => terrainGeometry(world), [world])
+  const outcrops = useMemo(() => boulderBodies(world), [world])
+  const ground = useMemo(() => makeGroundMaterial(world.mossTextures, rock), [world, rock])
 
   useEffect(() => {
     return () => {
       geometry.dispose()
       outcrops.forEach((body) => body.geometry.dispose())
       ground.dispose()
-      moss.dispose()
     }
-  }, [geometry, outcrops, ground, moss, rock])
+  }, [geometry, outcrops, ground])
 
   return (
     <group>
@@ -324,7 +183,7 @@ export function MossGround() {
             map={rock.map}
             normalMap={rock.normalMap}
             roughnessMap={rock.roughnessMap}
-            normalScale={new THREE.Vector2(1.1, 1.1)}
+            normalScale={BOULDER_NORMAL_SCALE}
             color="#7a7d6d"
             roughness={0.95}
             metalness={0}

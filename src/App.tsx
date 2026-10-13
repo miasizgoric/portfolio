@@ -6,8 +6,11 @@ import { TouchStick } from '@/ui/TouchStick'
 import { MyWorkPage } from '@/ui/MyWorkPage'
 import { NoWebGL, SceneBoundary, canRunWebGL } from '@/ui/NoWebGL'
 import { useRoute } from '@/lib/route'
+import { startWorld } from '@/world/useWorld'
 
 const MY_WORK = '/my-work'
+
+startWorld()
 
 const Experience = lazy(() => import('@/scene/Experience').then((m) => ({ default: m.Experience })))
 

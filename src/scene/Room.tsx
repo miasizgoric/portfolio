@@ -2,8 +2,8 @@ import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { OUTSIDE, type Room as RoomData, type Wall } from '@/data/rooms'
 import { buildWallSegments, wallPointToWorld, getWallInfo } from '@/lib/roomGeometry'
-import { createWoodFloorTextures, getRockTextures } from '@/lib/proceduralTextures'
 import { useSkyClock } from '@/lib/sun'
+import { floorTextures, loadedWorld } from '@/world/useWorld'
 import { Artwork } from './Artwork'
 
 const SOLID_THICKNESS = 0.2
@@ -27,7 +27,7 @@ function WallMesh({ room, wall }: { room: RoomData; wall: Wall }) {
   const segments = useMemo(() => buildWallSegments(room, wall), [room, wall])
   const isGlass = room.wallMaterial === 'glass'
   const thickness = isGlass ? GLASS_THICKNESS : SOLID_THICKNESS
-  const plaster = getRockTextures()
+  const plaster = loadedWorld().rockTextures
 
   return (
     <group>
@@ -131,7 +131,7 @@ function FramePosts({ room }: { room: RoomData }) {
 
 function Thresholds({ room }: { room: RoomData }) {
   const floorY = room.center[1]
-  const stone = getRockTextures()
+  const stone = loadedWorld().rockTextures
 
   return (
     <>
@@ -267,7 +267,7 @@ function CeilingLights({ room }: { room: RoomData }) {
 export function RoomMesh({ room }: { room: RoomData }) {
   const [cx, floorY, cz] = room.center
 
-  const floor = useMemo(() => createWoodFloorTextures(room.width, room.depth), [room.width, room.depth])
+  const floor = useMemo(() => floorTextures(loadedWorld().wood, room.width, room.depth), [room.width, room.depth])
   useEffect(() => () => floor.dispose(), [floor])
 
   return (

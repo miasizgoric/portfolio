@@ -33,7 +33,7 @@ function configure(tex: THREE.DataTexture, srgb: boolean): THREE.DataTexture {
   return tex
 }
 
-function heightToNormal(height: Float32Array, strength: number): THREE.DataTexture {
+function heightToNormal(height: Float32Array, strength: number): Uint8Array {
   const data = new Uint8Array(SIZE * SIZE * 4)
   for (let y = 0; y < SIZE; y++) {
     const yUp = ((y - 1 + SIZE) % SIZE) * SIZE
@@ -52,10 +52,10 @@ function heightToNormal(height: Float32Array, strength: number): THREE.DataTextu
       data[i + 3] = 255
     }
   }
-  return configure(new THREE.DataTexture(data, SIZE, SIZE, THREE.RGBAFormat), false)
+  return data
 }
 
-function greyTexture(values: Float32Array): THREE.DataTexture {
+function greyTexture(values: Float32Array): Uint8Array {
   const data = new Uint8Array(SIZE * SIZE * 4)
   for (let i = 0; i < SIZE * SIZE; i++) {
     const g = clamp01(values[i]) * 255
@@ -64,13 +64,25 @@ function greyTexture(values: Float32Array): THREE.DataTexture {
     data[i * 4 + 2] = g
     data[i * 4 + 3] = 255
   }
-  return configure(new THREE.DataTexture(data, SIZE, SIZE, THREE.RGBAFormat), false)
+  return data
+}
+
+// Pixel data only, so it can be generated in a worker and handed over without copying.
+export interface SurfaceData {
+  albedo: Uint8Array
+  normal: Uint8Array
+  roughness: Uint8Array
+  ao: Uint8Array
+}
+
+export function surfaceBuffers(data: SurfaceData): ArrayBuffer[] {
+  return [data.albedo.buffer, data.normal.buffer, data.roughness.buffer, data.ao.buffer] as ArrayBuffer[]
 }
 
 function build(
   seed: number,
   sample: (u: number, v: number, n: Noise2D, m: Noise2D) => { h: number; tint: number; rough: number },
-): SurfaceTextures {
+): SurfaceData {
   const n = makeNoise2D(seed)
   const m = makeNoise2D(seed + 977)
 
@@ -94,26 +106,10 @@ function build(
     }
   }
 
-  const map = configure(new THREE.DataTexture(albedo, SIZE, SIZE, THREE.RGBAFormat), true)
-  const normalMap = heightToNormal(height, SIZE * 0.06)
-  const roughnessMap = greyTexture(rough)
-  const aoMap = greyTexture(ao)
-
-  return {
-    map,
-    normalMap,
-    roughnessMap,
-    aoMap,
-    dispose() {
-      map.dispose()
-      normalMap.dispose()
-      roughnessMap.dispose()
-      aoMap.dispose()
-    },
-  }
+  return { albedo, normal: heightToNormal(height, SIZE * 0.06), roughness: greyTexture(rough), ao: greyTexture(ao) }
 }
 
-export function createMossTextures(): SurfaceTextures {
+export function createMossData(): SurfaceData {
   return build(4801, (u, v, n, m) => {
     const clump = tileable(u, v, (a, b) => billow2(n, a * 5, b * 5, 3))
     const fuzz = tileable(u, v, (a, b) => fbm2(m, a * 22, b * 22, 3) * 0.5 + 0.5)
@@ -127,9 +123,9 @@ export function createMossTextures(): SurfaceTextures {
   })
 }
 
-export function createWoodFloorTextures(width: number, depth: number): SurfaceTextures {
+export function createWoodFloorData(): SurfaceData {
   const BOARDS = 9
-  const textures = build(9281, (u, v, n, m) => {
+  return build(9281, (u, v, n, m) => {
     const board = Math.floor(v * BOARDS)
     const stagger = (board * 0.37) % 1
     const alongBoard = (u + stagger) % 1
@@ -150,20 +146,9 @@ export function createWoodFloorTextures(width: number, depth: number): SurfaceTe
     }
   })
 
-  for (const tex of [textures.map, textures.normalMap, textures.roughnessMap, textures.aoMap]) {
-    tex.repeat.set(Math.max(1, width / 2.2), Math.max(1, depth / 2.2))
-  }
-  return textures
 }
 
-let rockTextures: SurfaceTextures | null = null
-
-export function getRockTextures(): SurfaceTextures {
-  if (!rockTextures) rockTextures = createRockTextures()
-  return rockTextures
-}
-
-function createRockTextures(): SurfaceTextures {
+export function createRockData(): SurfaceData {
   return build(6151, (u, v, n, m) => {
     const grain = tileable(u, v, (a, b) => fbm2(n, a * 26, b * 26, 3) * 0.5 + 0.5)
     const strata = tileable(u, v, (a, b) => ridged2(m, a * 3.5, b * 17, 3))
@@ -177,3 +162,27 @@ function createRockTextures(): SurfaceTextures {
   })
 }
 
+
+export function surfaceTextures(data: SurfaceData, repeat?: [number, number]): SurfaceTextures {
+  const make = (pixels: Uint8Array, srgb: boolean) => {
+    const tex = configure(new THREE.DataTexture(pixels, SIZE, SIZE, THREE.RGBAFormat), srgb)
+    if (repeat) tex.repeat.set(repeat[0], repeat[1])
+    return tex
+  }
+  const map = make(data.albedo, true)
+  const normalMap = make(data.normal, false)
+  const roughnessMap = make(data.roughness, false)
+  const aoMap = make(data.ao, false)
+  return {
+    map,
+    normalMap,
+    roughnessMap,
+    aoMap,
+    dispose() {
+      map.dispose()
+      normalMap.dispose()
+      roughnessMap.dispose()
+      aoMap.dispose()
+    },
+  }
+}

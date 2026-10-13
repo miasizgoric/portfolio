@@ -13,6 +13,7 @@ import {
 } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
+import { useGalleryStore } from '@/store/useGalleryStore'
 import { Gallery } from './Gallery'
 
 // Retina laptops and iGPUs are fill-rate bound: the same scene runs about twice as fast at
@@ -24,8 +25,18 @@ const TIERS = [
   { dpr: 0.8, ao: false, samples: 0 },
 ]
 
+// Phones and low-end machines would only spend their first seconds rendering at full quality
+// before the monitor steps them down, rebuilding the whole effect chain mid-load. Start them low.
+function startingTier(): number {
+  const nav = navigator as Navigator & { deviceMemory?: number }
+  const touch = window.matchMedia('(pointer: coarse)').matches
+  const weak = (nav.deviceMemory ?? 8) <= 4 || (nav.hardwareConcurrency ?? 8) <= 4
+  if (touch) return 2
+  return weak ? 1 : 0
+}
+
 export function Experience() {
-  const [tier, setTier] = useState(0)
+  const [tier, setTier] = useState(startingTier)
   const { dpr, ao, samples } = TIERS[tier]
 
   return (
@@ -49,7 +60,11 @@ export function Experience() {
         bounds={() => [52, 240]}
         iterations={6}
         threshold={0.75}
-        onDecline={() => setTier((current) => Math.min(current + 1, TIERS.length - 1))}
+        onDecline={() => {
+          // Frame times are meaningless while the scene is still loading and compiling.
+          if (!useGalleryStore.getState().sceneReady) return
+          setTier((current) => Math.min(current + 1, TIERS.length - 1))
+        }}
       />
       <Suspense fallback={null}>
         <Gallery />

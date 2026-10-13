@@ -10,12 +10,13 @@ import { Lighting } from './Lighting'
 import { Forest, FOREST_STAGES } from './Forest'
 import { CameraRig } from './CameraRig'
 import { useGalleryStore } from '@/store/useGalleryStore'
+import { useWorld } from '@/world/useWorld'
 
-function useStagedMount(stages: number): number {
+function useStagedMount(stages: number, enabled: boolean): number {
   const [stage, setStage] = useState(0)
 
   useEffect(() => {
-    if (stage >= stages) return
+    if (!enabled || stage >= stages) return
     let timer = 0
     const frame = requestAnimationFrame(() => {
       timer = window.setTimeout(() => setStage((current) => current + 1), 0)
@@ -24,7 +25,7 @@ function useStagedMount(stages: number): number {
       cancelAnimationFrame(frame)
       clearTimeout(timer)
     }
-  }, [stage, stages])
+  }, [stage, stages, enabled])
 
   return stage
 }
@@ -74,11 +75,12 @@ const OVERCAST_AIR = new THREE.Color('#8e959b')
 export function Gallery() {
   const { sun } = useSkyClock()
   const weather = useWeather()
-  const stage = useStagedMount(FOREST_STAGES)
+  const world = useWorld()
+  const stage = useStagedMount(FOREST_STAGES, world !== null)
   const probe = useSkyProbe()
   const scene = useThree((state) => state.scene)
 
-  useSceneWarmup(stage >= FOREST_STAGES)
+  useSceneWarmup(world !== null && stage >= FOREST_STAGES)
 
   useEffect(() => {
     scene.environment = probe
@@ -101,10 +103,8 @@ export function Gallery() {
       <color attach="background" args={[air.getHex()]} />
       <fog attach="fog" args={[air.getHex(), fogNear, fogFar]} />
       <Lighting />
-      <Forest stage={stage} />
-      {rooms.map((room) => (
-        <RoomMesh key={room.id} room={room} />
-      ))}
+      <Forest stage={stage} world={world} />
+      {world && rooms.map((room) => <RoomMesh key={room.id} room={room} />)}
       <CameraRig />
     </>
   )

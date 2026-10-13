@@ -1,14 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { tileable } from '@/lib/proceduralTextures'
-import { clamp01, fbm2, makeNoise2D, ridged2 } from '@/lib/terrainNoise'
+import { CLOUD_TEX } from '@/world/cloudData'
+import type { World } from '@/world/useWorld'
 import { useSkyClock } from '@/lib/sun'
 import { useWeather } from '@/lib/weather'
 
 const SIZE = 1200
 const HEIGHT = 235
-const TEX = 256
+const TEX = CLOUD_TEX
 
 const LIT_NIGHT = new THREE.Color('#2f3a52')
 const LIT_DUSK = new THREE.Color('#f6c9a0')
@@ -17,19 +17,7 @@ const SHADE_NIGHT = new THREE.Color('#10151f')
 const SHADE_DUSK = new THREE.Color('#6d5668')
 const SHADE_DAY = new THREE.Color('#93a3b6')
 
-function makeCloudTexture(): THREE.DataTexture {
-  const soft = makeNoise2D(60617)
-  const wisp = makeNoise2D(71723)
-  const data = new Uint8Array(TEX * TEX)
-  for (let y = 0; y < TEX; y++) {
-    for (let x = 0; x < TEX; x++) {
-      const u = x / TEX
-      const v = y / TEX
-      const body = tileable(u, v, (a, b) => fbm2(soft, a * 3.1, b * 3.1, 4) * 0.5 + 0.5)
-      const wisps = tileable(u, v, (a, b) => ridged2(wisp, a * 7.3, b * 7.3, 3))
-      data[y * TEX + x] = clamp01(body * 0.78 + wisps * 0.3 - 0.06) * 255
-    }
-  }
+function makeCloudTexture(data: Uint8Array): THREE.DataTexture {
   const tex = new THREE.DataTexture(data, TEX, TEX, THREE.RedFormat)
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
@@ -81,11 +69,11 @@ void main() {
 const lit = new THREE.Color()
 const shade = new THREE.Color()
 
-export function CloudLayer() {
+export function CloudLayer({ world }: { world: World }) {
   const { sun } = useSkyClock()
   const weather = useWeather()
   const mesh = useRef<THREE.Mesh>(null)
-  const texture = useMemo(() => makeCloudTexture(), [])
+  const texture = useMemo(() => makeCloudTexture(world.clouds), [world])
 
   const material = useMemo(
     () =>

@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { Artwork as ArtworkData, Room } from '@/data/rooms'
 import { getWallInfo, wallPointToWorld, wallRotationY } from '@/lib/roomGeometry'
+import { loadBitmap } from '@/world/bitmaps'
 
 const WARM_UP_SECONDS = 1.4
 const STATIC_GLOW = new THREE.Color('#9dbdf0')
@@ -131,6 +132,20 @@ function seedFrom(id: string): number {
 
 const ARTWORK_MAX_EDGE = 1536
 
+async function decodeOnMainThread(url: string): Promise<ImageBitmap> {
+  const image = new Image()
+  image.decoding = 'async'
+  image.src = url
+  await image.decode()
+  const scale = Math.min(1, ARTWORK_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight))
+  return createImageBitmap(image, {
+    resizeWidth: Math.round(image.naturalWidth * scale),
+    resizeHeight: Math.round(image.naturalHeight * scale),
+    resizeQuality: 'high',
+    imageOrientation: 'flipY',
+  })
+}
+
 function useArtworkTexture(url: string | undefined): THREE.Texture | null {
   const [texture, setTexture] = useState<THREE.Texture | null>(null)
 
@@ -139,22 +154,10 @@ function useArtworkTexture(url: string | undefined): THREE.Texture | null {
     let loaded: THREE.Texture | null = null
     let cancelled = false
 
-    // The source JPEGs are up to 3637x2550; uploading them at full size blocks the main
-    // thread for ~100 ms each. Decode and downscale off-thread, upload only what a TV needs.
-    const image = new Image()
-    image.decoding = 'async'
-    image.src = url
-    image
-      .decode()
-      .then(() => {
-        const scale = Math.min(1, ARTWORK_MAX_EDGE / Math.max(image.naturalWidth, image.naturalHeight))
-        return createImageBitmap(image, {
-          resizeWidth: Math.round(image.naturalWidth * scale),
-          resizeHeight: Math.round(image.naturalHeight * scale),
-          resizeQuality: 'high',
-          imageOrientation: 'flipY',
-        })
-      })
+    // The source JPEGs are up to 3637x2550; decoding and downscaling them on the main thread
+    // blocks it for seconds on a phone, so a worker does it and only the small bitmap comes back.
+    loadBitmap(url, ARTWORK_MAX_EDGE)
+      .then((bitmap) => bitmap ?? decodeOnMainThread(url))
       .then((bitmap) => {
         if (cancelled) {
           bitmap.close()
