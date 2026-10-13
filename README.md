@@ -6,6 +6,8 @@ I came up with the concept and visual direction, made the architectural decision
 
 The idea is a slow, quiet walk through a gallery rather than a page you scroll. The environment is inspired by the work of Paul Milinski.
 
+**[Live demo](https://sizgoricportfolio.netlify.app)**
+
 ## Features
 
 - **First-person exploration** of a gallery of connected rooms, with collision against walls and doorways
@@ -36,9 +38,9 @@ The idea is a slow, quiet walk through a gallery rather than a page you scroll. 
 - [Vite](https://vite.dev/) for dev server and bundling
 - [oxlint](https://oxc.rs/docs/guide/usage/linter) for linting
 
-## How to run
+## Run locally
 
-Requires Node.js 24 or newer.
+Not needed to view the site, since it is live at the link above. This is for development only. Requires Node.js 24 or newer.
 
 ```bash
 npm install
