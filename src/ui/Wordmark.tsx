@@ -1,24 +1,36 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { TextMorph } from '@/components/ui/text-morph'
+import { FlippingWordSwap } from '@/components/ui/flipping-word-swap'
 import { selectIntroVisible, useGalleryStore } from '@/store/useGalleryStore'
 import { ScrambleText } from './ScrambleText'
 
 const SOFT_EASE = [0.22, 1, 0.36, 1] as const
 const KEY_HINTS = ['use wasd to move', 'use arrows to move', 'double-tap space to fly']
-const TOUCH_HINTS = ['drag left to move', 'drag right to look']
+// On a phone the instructions morph into the suggestion to switch to a desktop.
+const TOUCH_HINTS = ['drag left to move', 'drag right to look', 'for a better experience\nuse a desktop computer']
 const TOUCH = window.matchMedia('(pointer: coarse)').matches
 const HINT_WORDS = TOUCH ? TOUCH_HINTS : KEY_HINTS
-const HOLD_MS = 4200
+// How long the finished wordmark stays up before the scene is revealed.
+const RESOLVED_BEAT_MS = 900
 
 export function Wordmark() {
   const visible = useGalleryStore(selectIntroVisible)
   const releaseIntro = useGalleryStore((s) => s.releaseIntro)
+  const failed = useGalleryStore((s) => s.sceneFailed)
+  const sceneReady = useGalleryStore((s) => s.sceneReady)
+  const [hintsShown, setHintsShown] = useState(false)
+  const releaseTimer = useRef(0)
 
-  useEffect(() => {
-    const timeout = setTimeout(releaseIntro, HOLD_MS)
-    return () => clearTimeout(timeout)
-  }, [releaseIntro])
+  useEffect(() => () => window.clearTimeout(releaseTimer.current), [])
+
+  // The wordmark keeps scrambling as a loading state: it only lands once the scene is ready and
+  // every instruction has had its turn, and the intro lifts a beat after that.
+  const landed = () => {
+    releaseTimer.current = window.setTimeout(releaseIntro, RESOLVED_BEAT_MS)
+  }
+
+  // On a failed scene the intro goes at once, with no fade, so the wordmark is never seen.
+  if (failed) return null
 
   return (
     <AnimatePresence>
@@ -33,7 +45,9 @@ export function Wordmark() {
           <ScrambleText
             text="mia"
             delay={260}
-            duration={1500}
+            duration={1100}
+            hold={!(sceneReady && hintsShown)}
+            onResolve={landed}
             className="font-mono text-5xl lowercase tracking-[0.22em] text-white"
           />
 
@@ -43,14 +57,13 @@ export function Wordmark() {
             transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 1.4 }}
             className="font-mono text-[11px] lowercase tracking-[0.34em] text-white"
           >
-            <TextMorph words={HINT_WORDS} interval={1500} morphDuration={600} />
+            <FlippingWordSwap
+              words={HINT_WORDS}
+              interval={1200}
+              startDelay={1400}
+              onSettle={(flips) => flips >= HINT_WORDS.length - 1 && setHintsShown(true)}
+            />
           </motion.div>
-
-          {TOUCH && (
-            <p className="max-w-[16rem] text-center font-mono text-[10px] lowercase leading-relaxed tracking-[0.2em] text-white/40">
-              for a better experience use a desktop computer
-            </p>
-          )}
         </motion.div>
       )}
     </AnimatePresence>

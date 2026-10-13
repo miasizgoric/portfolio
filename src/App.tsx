@@ -20,6 +20,7 @@ const Experience = lazy(() => import('@/scene/Experience').then((m) => ({ defaul
 function App() {
   const [path, navigate] = useRoute()
   const [webgl] = useState(canRunWebGL)
+  const failed = useGalleryStore((s) => s.sceneFailed)
   const onMyWork = path === MY_WORK
 
   useEffect(() => {
@@ -28,7 +29,7 @@ function App() {
 
   return (
     <div className="relative h-dvh w-screen bg-black">
-      {webgl ? (
+      {webgl && !failed ? (
         <SceneBoundary>
           <Suspense fallback={null}>
             <Experience />

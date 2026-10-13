@@ -1,4 +1,6 @@
-import { Component, useEffect, type ReactNode } from 'react'
+import { Component, useLayoutEffect, type ReactNode } from 'react'
+import { TriangleAlert } from 'lucide-react'
+import { FlippingWordSwap } from '@/components/ui/flipping-word-swap'
 import { useGalleryStore } from '@/store/useGalleryStore'
 
 export function canRunWebGL(): boolean {
@@ -10,19 +12,34 @@ export function canRunWebGL(): boolean {
   }
 }
 
+const WARNING_WORDS = [
+  'something went wrong\nin your browser',
+  'refresh the page or try\nanother browser for the\nsite to work fully',
+]
+const WARNING_TEXT =
+  'something went wrong in your browser. refresh the page or try another browser for the site to work fully.'
+
+// Shown instead of the scene whenever the browser cannot run it. Only the warning: the intro
+// (and its wordmark) is switched off through the store.
 export function NoWebGL() {
-  useEffect(() => {
-    // The intro cover waits for the scene; there is no scene, so let it go.
-    useGalleryStore.getState().setSceneReady()
+  useLayoutEffect(() => {
+    useGalleryStore.getState().setSceneFailed()
   }, [])
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-gradient-to-b from-[#0d1728] to-black px-8 text-center">
-      <div className="font-mono text-4xl lowercase tracking-[0.22em] text-white">mia</div>
-      <p className="max-w-sm font-mono text-xs leading-relaxed lowercase tracking-wide text-white/70">
-        this site is a walkable 3d scene and your browser could not start it. try another browser, or turn on
-        hardware acceleration in its settings. the menu in the corner still opens my work.
-      </p>
+    <div
+      role="alert"
+      className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black px-8 text-center"
+    >
+      <TriangleAlert className="h-5 w-5 text-white/60" strokeWidth={1.6} aria-hidden />
+      <p className="sr-only">{WARNING_TEXT}</p>
+      <div aria-hidden>
+        <FlippingWordSwap
+          words={WARNING_WORDS}
+          interval={3200}
+          className="font-mono text-xs leading-relaxed lowercase tracking-wide text-white/75"
+        />
+      </div>
     </div>
   )
 }

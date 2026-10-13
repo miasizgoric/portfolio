@@ -24,7 +24,7 @@ export function MyWorkPage({ onBack }: { onBack: () => void }) {
       <ScrambleText
         text="my work"
         delay={180}
-        duration={1500}
+        duration={1100}
         className="font-mono text-4xl lowercase tracking-[0.22em] text-white"
       />
 

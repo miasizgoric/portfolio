@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { useGalleryStore } from '@/store/useGalleryStore'
 import { surfaceTextures, type SurfaceData, type SurfaceTextures } from '@/lib/proceduralTextures'
 import { computeWorld, type WorldData } from './compute'
 
@@ -12,12 +13,27 @@ let started = false
 const listeners = new Set<() => void>()
 
 function publish(data: WorldData) {
-  current = {
-    ...data,
-    mossTextures: surfaceTextures(data.moss),
-    rockTextures: surfaceTextures(data.rock),
+  try {
+    current = {
+      ...data,
+      mossTextures: surfaceTextures(data.moss),
+      rockTextures: surfaceTextures(data.rock),
+    }
+  } catch {
+    useGalleryStore.getState().setSceneFailed()
+    return
   }
   listeners.forEach((notify) => notify())
+}
+
+function computeOnMainThread() {
+  setTimeout(() => {
+    try {
+      publish(computeWorld().world)
+    } catch {
+      useGalleryStore.getState().setSceneFailed()
+    }
+  }, 0)
 }
 
 // Generation runs in a worker so the page keeps painting and responding while it loads. If
@@ -33,11 +49,11 @@ export function startWorld() {
     }
     worker.onerror = () => {
       worker.terminate()
-      setTimeout(() => publish(computeWorld().world), 0)
+      computeOnMainThread()
     }
     worker.postMessage(null)
   } catch {
-    setTimeout(() => publish(computeWorld().world), 0)
+    computeOnMainThread()
   }
 }
 

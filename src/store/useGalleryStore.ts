@@ -13,9 +13,11 @@ interface GalleryState {
   hasMoved: boolean
   introHeld: boolean
   sceneReady: boolean
+  sceneFailed: boolean
   setHasMoved: () => void
   releaseIntro: () => void
   setSceneReady: () => void
+  setSceneFailed: () => void
   paused: boolean
   setPaused: (paused: boolean) => void
   flying: boolean
@@ -30,9 +32,11 @@ export const useGalleryStore = create<GalleryState>((set) => ({
   hasMoved: false,
   introHeld: true,
   sceneReady: false,
+  sceneFailed: false,
   setHasMoved: () => set({ hasMoved: true }),
   releaseIntro: () => set({ introHeld: false }),
   setSceneReady: () => set({ sceneReady: true }),
+  setSceneFailed: () => set({ sceneFailed: true }),
   paused: false,
   setPaused: (paused) => set({ paused }),
   flying: false,
@@ -41,4 +45,6 @@ export const useGalleryStore = create<GalleryState>((set) => ({
   enterRoom: (id) => set((s) => ({ enteredRooms: { ...s.enteredRooms, [id]: true } })),
 }))
 
-export const selectIntroVisible = (s: GalleryState) => !s.hasMoved && (s.introHeld || !s.sceneReady)
+// A failed scene shows only the warning, never the intro.
+export const selectIntroVisible = (s: GalleryState) =>
+  !s.hasMoved && !s.sceneFailed && (s.introHeld || !s.sceneReady)
