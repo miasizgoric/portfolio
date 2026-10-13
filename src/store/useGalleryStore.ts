@@ -20,6 +20,8 @@ interface GalleryState {
   setPaused: (paused: boolean) => void
   flying: boolean
   toggleFlying: () => void
+  enteredRooms: Record<string, true>
+  enterRoom: (id: string) => void
 }
 
 export const useGalleryStore = create<GalleryState>((set) => ({
@@ -35,6 +37,8 @@ export const useGalleryStore = create<GalleryState>((set) => ({
   setPaused: (paused) => set({ paused }),
   flying: false,
   toggleFlying: () => set((s) => ({ flying: !s.flying })),
+  enteredRooms: {},
+  enterRoom: (id) => set((s) => ({ enteredRooms: { ...s.enteredRooms, [id]: true } })),
 }))
 
 export const selectIntroVisible = (s: GalleryState) => !s.hasMoved && (s.introHeld || !s.sceneReady)

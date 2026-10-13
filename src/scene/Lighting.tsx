@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { SUN_DISTANCE, useSkyClock } from '@/lib/sun'
+import { SUN_DISTANCE, keyLightOf, useSkyClock } from '@/lib/sun'
 
 const SUN_WARM = new THREE.Color('#ffd7a8')
 const SUN_NOON = new THREE.Color('#fff6e8')
@@ -19,11 +19,8 @@ export function Lighting() {
   const key = useRef<THREE.DirectionalLight>(null)
   const tick = useRef(0)
 
-  const nightKey = sun.nightFactor > 0.5
-  const keyDir = nightKey ? moon.position : sun.position
+  const { night: nightKey, direction: keyDir, intensity: keyIntensity } = keyLightOf(sun, moon)
   const keyColor = nightKey ? MOON_TONE : SUN_WARM.clone().lerp(SUN_NOON, sun.dayFactor)
-  const moonlit = (0.04 + moon.light * 0.96) * sun.nightFactor
-  const keyIntensity = sun.dayFactor * 3.2 + sun.goldenFactor * 0.9 + moonlit * 1.56
 
   const skyColor = SKY_NIGHT.clone().lerp(SKY_DUSK, sun.twilightFactor).lerp(SKY_DAY, sun.dayFactor)
   const earthColor = EARTH_NIGHT.clone().lerp(EARTH_DAY, sun.dayFactor)

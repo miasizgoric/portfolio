@@ -75,6 +75,18 @@ function computeMoon(date: Date): MoonState {
   }
 }
 
+// The single directional light is the sun by day and the moon by night; the player's shadow
+// follows the same direction and strength.
+export function keyLightOf(sun: SunState, moon: MoonState) {
+  const night = sun.nightFactor > 0.5
+  const moonlit = (0.04 + moon.light * 0.96) * sun.nightFactor
+  return {
+    night,
+    direction: night ? moon.position : sun.position,
+    intensity: sun.dayFactor * 3.2 + sun.goldenFactor * 0.9 + moonlit * 1.56,
+  }
+}
+
 function computeClock(): SkyClock {
   const date = new Date()
   return { sun: computeSun(date), moon: computeMoon(date) }

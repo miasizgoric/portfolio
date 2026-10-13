@@ -2,8 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { rooms, PLAYER_START, EYE_HEIGHT } from '@/data/rooms'
-import { resolveMove, isInBounds, isIndoors } from '@/lib/collision'
-import { terrainHeightAt } from '@/lib/terrain'
+import { resolveMove, isInBounds, findRoomAt, groundHeightAt } from '@/lib/collision'
 import { DEBUG } from '@/lib/diagnostics'
 import { useGalleryStore } from '@/store/useGalleryStore'
 
@@ -11,6 +10,10 @@ const START_POSITION = new THREE.Vector3(...PLAYER_START)
 const MOVE_SPEED = 3.4
 const FLY_SPEED = 7
 const FLY_LIFT = 5.5
+const FLY_CLEARANCE = 0.6
+const GRAVITY = 24
+const MAX_FALL_SPEED = 30
+const FALL_DROP = 0.45
 
 const LOOK_SENSITIVITY = 0.0028
 const EDGE_ZONE = 0.16
@@ -103,6 +106,7 @@ export function CameraRig() {
   const look = useRef({ yaw: 0, pitch: 0 })
   const stick = useRef({ x: 0, y: 0 })
   const lastSpace = useRef(0)
+  const fallSpeed = useRef(0)
 
   useEffect(() => {
     if (!DEBUG) return
@@ -288,7 +292,7 @@ export function CameraRig() {
           camera.position.x += move.x
           camera.position.z += move.z
         } else {
-          const [nx, nz] = resolveMove(rooms, camera.position.x, camera.position.z, move.x, move.z)
+          const [nx, nz] = resolveMove(rooms, camera.position.x, camera.position.z, move.x, move.z, camera.position.y - EYE_HEIGHT)
           camera.position.x = nx
           camera.position.z = nz
         }
@@ -305,17 +309,35 @@ export function CameraRig() {
       return
     }
 
-    const groundY = isIndoors(rooms, camera.position.x, camera.position.z)
-      ? 0
-      : terrainHeightAt(camera.position.x, camera.position.z)
+    // Landing on a roof or a sea stack keeps the visitor standing there instead of dropping to
+    // the terrain or the room floor underneath.
+    const groundY = groundHeightAt(
+      rooms,
+      camera.position.x,
+      camera.position.z,
+      camera.position.y - (isFlying ? FLY_CLEARANCE : EYE_HEIGHT),
+    )
 
     if (isFlying) {
+      fallSpeed.current = 0
       if (up) camera.position.y += FLY_LIFT * delta
       if (down) camera.position.y -= FLY_LIFT * delta
-      camera.position.y = Math.max(camera.position.y, groundY + 0.6)
+      camera.position.y = Math.max(camera.position.y, groundY + FLY_CLEARANCE)
     } else {
-      camera.position.y = THREE.MathUtils.damp(camera.position.y, groundY + EYE_HEIGHT, 12, delta)
+      const standY = groundY + EYE_HEIGHT
+      const step = Math.min(delta, 0.05)
+      if (camera.position.y > standY + FALL_DROP) {
+        fallSpeed.current = Math.min(fallSpeed.current + GRAVITY * step, MAX_FALL_SPEED)
+        camera.position.y = Math.max(camera.position.y - fallSpeed.current * step, standY)
+      } else {
+        fallSpeed.current = 0
+        camera.position.y = THREE.MathUtils.damp(camera.position.y, standY, 12, delta)
+      }
     }
+
+    // The screens in a room only switch on once the visitor walks in.
+    const room = findRoomAt(rooms, camera.position.x, camera.position.z)
+    if (room && !useGalleryStore.getState().enteredRooms[room.id]) useGalleryStore.getState().enterRoom(room.id)
   })
 
   return null

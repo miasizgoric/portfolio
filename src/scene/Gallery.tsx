@@ -9,6 +9,7 @@ import { RoomMesh } from './Room'
 import { Lighting } from './Lighting'
 import { Forest, FOREST_STAGES } from './Forest'
 import { CameraRig } from './CameraRig'
+import { PlayerShadow } from './PlayerShadow'
 import { useGalleryStore } from '@/store/useGalleryStore'
 import { useWorld } from '@/world/useWorld'
 
@@ -118,6 +119,7 @@ export function Gallery() {
       <Forest stage={stage} world={world} />
       {world && rooms.map((room) => <RoomMesh key={room.id} room={room} />)}
       <CameraRig />
+      <PlayerShadow />
     </>
   )
 }

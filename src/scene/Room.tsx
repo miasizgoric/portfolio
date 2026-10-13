@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { OUTSIDE, type Room as RoomData, type Wall } from '@/data/rooms'
-import { buildWallSegments, wallPointToWorld, getWallInfo } from '@/lib/roomGeometry'
+import { buildWallSegments, wallPointToWorld, getWallInfo, ROOF_LIFT, ROOF_THICKNESS } from '@/lib/roomGeometry'
 import { useSkyClock } from '@/lib/sun'
 import { floorTextures, loadedWorld } from '@/world/useWorld'
 import { Artwork } from './Artwork'
@@ -12,8 +12,6 @@ const FRAME_COLOR = '#e3b3a6'
 const WALLS: Wall[] = ['north', 'south', 'east', 'west']
 const FLOOR_NORMAL_SCALE = new THREE.Vector2(0.35, 0.35)
 const PLASTER_NORMAL_SCALE = new THREE.Vector2(0.14, 0.14)
-const ROOF_THICKNESS = 0.12
-const ROOF_LIFT = 0.01
 const EAVE = 0.15
 const MAX_LAMPS = 2
 const LAMP_TONE = '#ffeccc'
@@ -45,13 +43,14 @@ function WallMesh({ room, wall }: { room: RoomData; wall: Wall }) {
               <meshPhysicalMaterial
                 color="#dfeee8"
                 transmission={0.94}
-                roughness={0.06}
-                thickness={0.45}
+                roughness={0.05}
+                specularIntensity={0.25}
+                thickness={0.04}
                 ior={1.52}
                 metalness={0}
                 envMapIntensity={1.6}
                 attenuationColor="#9ec7bb"
-                attenuationDistance={6}
+                attenuationDistance={0.5}
                 transparent
               />
             ) : (

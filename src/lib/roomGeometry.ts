@@ -1,5 +1,17 @@
 import type { Room, Wall } from '@/data/rooms'
 
+export const ROOF_THICKNESS = 0.12
+export const ROOF_LIFT = 0.01
+
+export function ceilingY(room: Room): number {
+  return room.center[1] + room.height
+}
+
+// The walkable top of a room's roof slab.
+export function roofTopY(room: Room): number {
+  return ceilingY(room) + ROOF_LIFT + ROOF_THICKNESS
+}
+
 interface WallInfo {
   axis: 'x' | 'z'
   length: number

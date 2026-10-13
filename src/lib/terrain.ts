@@ -420,6 +420,13 @@ export function getTerrainField(): TerrainField {
   return defaultField
 }
 
+// The flat summit of a sea stack that rises clear of the water, where a visitor can land.
+export function onStackTop(x: number, z: number, margin = 0): boolean {
+  return STACKS.some(
+    (s) => s.top > SEA.level + 1 && Math.hypot(x - s.x, z - s.z) < s.inner * 0.85 - margin,
+  )
+}
+
 export function terrainHeightAt(x: number, z: number): number {
   return defaultField.height(x, z)
 }
