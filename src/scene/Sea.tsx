@@ -11,6 +11,9 @@ import { useWeather } from '@/lib/weather'
 const SIZE = 3200
 const CENTER_Z = -(SEA.cliffFoot + SIZE / 2 - 40)
 
+const HORIZON_FADE_START = 260
+const HORIZON_FADE_END = 540
+
 const LAYERS = [
   { tile: 7.3, angle: 0.35, speed: 1.1, heading: 0.42 },
   { tile: 18.9, angle: -1.05, speed: 1.7, heading: -0.38 },
@@ -112,6 +115,10 @@ const SEA_NORMAL = `
 const SEA_FOG = `
 #ifdef USE_FOG
   gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, smoothstep(fogNear * 2.0, fogFar * 2.6, vFogDepth));
+  // The camera stops drawing at its far plane, which used to leave the sea ending in an edge.
+  // Fading by view depth (the same measure the far plane clips by) dissolves the water into the
+  // sky along a straight horizon instead.
+  gl_FragColor.a *= 1.0 - smoothstep(${HORIZON_FADE_START.toFixed(1)}, ${HORIZON_FADE_END.toFixed(1)}, vFogDepth);
 #endif
 `
 
@@ -162,7 +169,13 @@ export function Sea({ world }: { world: World }) {
   )
 
   const material = useMemo(() => {
-    const mat = new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0, envMap: probe })
+    const mat = new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0, envMap: probe, transparent: true })
+    // Fade the colour into whatever is behind but leave the framebuffer alpha alone.
+    mat.blending = THREE.CustomBlending
+    mat.blendSrc = THREE.SrcAlphaFactor
+    mat.blendDst = THREE.OneMinusSrcAlphaFactor
+    mat.blendSrcAlpha = THREE.ZeroFactor
+    mat.blendDstAlpha = THREE.OneFactor
     mat.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms)
       shader.vertexShader = shader.vertexShader

@@ -7,7 +7,8 @@ import { ScrambleText } from './ScrambleText'
 const SOFT_EASE = [0.22, 1, 0.36, 1] as const
 const KEY_HINTS = ['use wasd to move', 'use arrows to move', 'double-tap space to fly']
 const TOUCH_HINTS = ['drag left to move', 'drag right to look']
-const HINT_WORDS = window.matchMedia('(pointer: coarse)').matches ? TOUCH_HINTS : KEY_HINTS
+const TOUCH = window.matchMedia('(pointer: coarse)').matches
+const HINT_WORDS = TOUCH ? TOUCH_HINTS : KEY_HINTS
 const HOLD_MS = 4200
 
 export function Wordmark() {
@@ -44,6 +45,12 @@ export function Wordmark() {
           >
             <TextMorph words={HINT_WORDS} interval={1500} morphDuration={600} />
           </motion.div>
+
+          {TOUCH && (
+            <p className="max-w-[16rem] text-center font-mono text-[10px] lowercase leading-relaxed tracking-[0.2em] text-white/40">
+              for a better experience use a desktop computer
+            </p>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { Wordmark } from '@/ui/Wordmark'
 import { Sidebar } from '@/ui/Sidebar'
@@ -8,6 +8,7 @@ import { NoWebGL, SceneBoundary, canRunWebGL } from '@/ui/NoWebGL'
 import { useRoute } from '@/lib/route'
 import { DEBUG } from '@/lib/diagnostics'
 import { DebugOverlay } from '@/ui/DebugOverlay'
+import { useGalleryStore } from '@/store/useGalleryStore'
 import { startWorld } from '@/world/useWorld'
 
 const MY_WORK = '/my-work'
@@ -19,6 +20,11 @@ const Experience = lazy(() => import('@/scene/Experience').then((m) => ({ defaul
 function App() {
   const [path, navigate] = useRoute()
   const [webgl] = useState(canRunWebGL)
+  const onMyWork = path === MY_WORK
+
+  useEffect(() => {
+    useGalleryStore.getState().setPaused(onMyWork)
+  }, [onMyWork])
 
   return (
     <div className="relative h-dvh w-screen bg-black">

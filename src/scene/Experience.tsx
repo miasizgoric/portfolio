@@ -17,6 +17,7 @@ import { useGalleryStore } from '@/store/useGalleryStore'
 import { DEBUG, diag, SCENE_FAILED } from '@/lib/diagnostics'
 import { NoWebGL } from '@/ui/NoWebGL'
 import { FrameProbe } from './FrameProbe'
+import { RenderGate } from './RenderGate'
 import { Gallery } from './Gallery'
 
 // Retina laptops and iGPUs are fill-rate bound: the same scene runs about twice as fast at
@@ -38,7 +39,7 @@ function startingTier(): number {
   return weak ? 1 : 0
 }
 
-const SAFE_KEY = 'scene-safe-mode'
+const SAFE_KEY = 'scene-safe-mode-v2'
 const STALL_MS = 4000
 
 function readSafe(): boolean {
@@ -90,7 +91,8 @@ export function Experience() {
     }
     const timer = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return
-      if (!useGalleryStore.getState().sceneReady) return
+      const { sceneReady, paused } = useGalleryStore.getState()
+      if (!sceneReady || paused) return
       if (performance.now() - diag.lastFrameAt > STALL_MS) fail()
     }, 1000)
     window.addEventListener(SCENE_FAILED, fail)
@@ -133,6 +135,7 @@ export function Experience() {
         }}
       />
       <FrameProbe tier={tier} />
+      <RenderGate />
       <Suspense fallback={null}>
         <Gallery />
       </Suspense>

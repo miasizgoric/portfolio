@@ -16,6 +16,10 @@ interface GalleryState {
   setHasMoved: () => void
   releaseIntro: () => void
   setSceneReady: () => void
+  paused: boolean
+  setPaused: (paused: boolean) => void
+  flying: boolean
+  toggleFlying: () => void
 }
 
 export const useGalleryStore = create<GalleryState>((set) => ({
@@ -27,6 +31,10 @@ export const useGalleryStore = create<GalleryState>((set) => ({
   setHasMoved: () => set({ hasMoved: true }),
   releaseIntro: () => set({ introHeld: false }),
   setSceneReady: () => set({ sceneReady: true }),
+  paused: false,
+  setPaused: (paused) => set({ paused }),
+  flying: false,
+  toggleFlying: () => set((s) => ({ flying: !s.flying })),
 }))
 
 export const selectIntroVisible = (s: GalleryState) => !s.hasMoved && (s.introHeld || !s.sceneReady)

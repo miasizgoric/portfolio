@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { rooms, PLAYER_START, EYE_HEIGHT } from '@/data/rooms'
 import { resolveMove, isInBounds, isIndoors } from '@/lib/collision'
 import { terrainHeightAt } from '@/lib/terrain'
+import { DEBUG } from '@/lib/diagnostics'
 import { useGalleryStore } from '@/store/useGalleryStore'
 
 const START_POSITION = new THREE.Vector3(...PLAYER_START)
@@ -101,8 +102,18 @@ export function CameraRig() {
   const target = useRef({ yaw: 0, pitch: 0 })
   const look = useRef({ yaw: 0, pitch: 0 })
   const stick = useRef({ x: 0, y: 0 })
-  const flying = useRef(false)
   const lastSpace = useRef(0)
+
+  useEffect(() => {
+    if (!DEBUG) return
+    // Lets a test drive the camera to a spot without walking there.
+    ;(window as unknown as { __cam: unknown }).__cam = (x: number, y: number, z: number, yaw: number, pitch: number) => {
+      useGalleryStore.setState({ flying: true })
+      camera.position.set(x, y, z)
+      target.current.yaw = look.current.yaw = yaw
+      target.current.pitch = look.current.pitch = pitch
+    }
+  }, [camera])
 
   useEffect(() => {
     camera.rotation.order = 'YXZ'
@@ -184,12 +195,24 @@ export function CameraRig() {
       cursor.current.inside = false
     }
 
+    // Opening the My Work page pauses the scene; a finger or key held at that moment would
+    // otherwise still count as pressed when it comes back.
+    const unsubscribe = useGalleryStore.subscribe((state, prev) => {
+      if (!state.paused || prev.paused) return
+      touches.clear()
+      stick.current.x = 0
+      stick.current.y = 0
+      Object.assign(keys.current, { forward: false, back: false, left: false, right: false, turnLeft: false, turnRight: false, up: false, down: false })
+      useGalleryStore.getState().setStick(null)
+    })
+
     el.addEventListener('pointerdown', handleDown)
     el.addEventListener('pointerup', handleUp)
     el.addEventListener('pointercancel', handleUp)
     el.addEventListener('pointermove', handleMove)
     el.addEventListener('pointerleave', handleLeave)
     return () => {
+      unsubscribe()
       el.removeEventListener('pointerdown', handleDown)
       el.removeEventListener('pointerup', handleUp)
       el.removeEventListener('pointercancel', handleUp)
@@ -205,7 +228,7 @@ export function CameraRig() {
         e.preventDefault()
         if (!e.repeat) {
           const now = performance.now()
-          if (now - lastSpace.current < DOUBLE_TAP_MS) flying.current = !flying.current
+          if (now - lastSpace.current < DOUBLE_TAP_MS) useGalleryStore.getState().toggleFlying()
           lastSpace.current = now
         }
       }
@@ -237,8 +260,9 @@ export function CameraRig() {
     look.current.pitch = THREE.MathUtils.damp(look.current.pitch, target.current.pitch, LOOK_DAMPING, delta)
     camera.rotation.set(look.current.pitch, look.current.yaw, 0)
 
-    const { forward, back, left, right, up, down } = keys.current
-    const isFlying = flying.current
+    const { forward, back, left, right } = keys.current
+    const isFlying = useGalleryStore.getState().flying
+    const { up, down } = keys.current
 
     const { x: stickX, y: stickY } = stick.current
     const stickActive = stickX !== 0 || stickY !== 0

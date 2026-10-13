@@ -43,6 +43,7 @@ function useSceneWarmup(mounted: boolean) {
   const camera = useThree((state) => state.camera)
   const setFrameloop = useThree((state) => state.setFrameloop)
   const advance = useThree((state) => state.advance)
+  const invalidate = useThree((state) => state.invalidate)
 
   useEffect(() => {
     if (!mounted) return
@@ -62,6 +63,10 @@ function useSceneWarmup(mounted: boolean) {
       }
       if (!live) return
       setFrameloop('always')
+      // The loop stops itself while the frameloop is 'never' and setFrameloop does not restart
+      // it, so without this the scene only began rendering if some unrelated update happened to
+      // invalidate it afterwards, and otherwise sat frozen on the last pre-roll frame.
+      invalidate()
       useGalleryStore.getState().setSceneReady()
     }
     // A driver that never reports its shaders as compiled must not leave the scene paused forever.
@@ -71,7 +76,7 @@ function useSceneWarmup(mounted: boolean) {
       live = false
       clearTimeout(failsafe)
     }
-  }, [mounted, gl, scene, camera, setFrameloop, advance])
+  }, [mounted, gl, scene, camera, setFrameloop, advance, invalidate])
 }
 
 const NIGHT_AIR = new THREE.Color('#0d1728')

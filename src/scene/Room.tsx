@@ -21,6 +21,7 @@ const LAMP_INTENSITY = 17
 const LAMP_REACH = 30
 const STEP_RISE = 1.4
 const STEP_OVERHANG = 1.15
+const STEP_TUCK = 0.12
 
 function WallMesh({ room, wall }: { room: RoomData; wall: Wall }) {
   const info = getWallInfo(room, wall)
@@ -142,9 +143,12 @@ function Thresholds({ room }: { room: RoomData }) {
           const out = -info.normalSign
           const [x, , z] = wallPointToWorld(room, d.wall, d.offset, 0)
           const along = d.width + 0.5
-          const shift = out * (STEP_OVERHANG / 2 + SOLID_THICKNESS / 2)
+          // The slab also runs back under the wall so no strip of ground shows in the doorway.
+          const outer = STEP_OVERHANG + SOLID_THICKNESS / 2
+          const reach = outer + STEP_TUCK
+          const shift = out * ((outer - STEP_TUCK) / 2)
           const size: [number, number, number] =
-            info.axis === 'x' ? [along, STEP_RISE, STEP_OVERHANG] : [STEP_OVERHANG, STEP_RISE, along]
+            info.axis === 'x' ? [along, STEP_RISE, reach] : [reach, STEP_RISE, along]
           return (
             <mesh
               key={i}
