@@ -1,14 +1,17 @@
 import { useSkyClock } from '@/lib/sun'
 import { selectIntroVisible, useGalleryStore } from '@/store/useGalleryStore'
 
-export const GLASS_BLUR = 'blur(16px) saturate(1.6)'
+// light enough that the scene stays readable through the glass, like the stick
+export const GLASS_BLUR = 'blur(6px) saturate(1.5)'
 
-// fill/rim/shadow/ink dress the sidebar; the touch stick is clearer glass, so it has its own thin
-// tint (lens, sheen, depth, bead, lensFill)
+// One palette per time of day. fill, rim, bubbleSheen and dropShadow dress the sidebar; the touch
+// stick is clearer glass and has its own thin tint (lens, sheen, depth, bead, lensFill) plus a shadow.
 const DAY_GLASS = {
-  fill: 'linear-gradient(to top, rgba(255,255,255,0.18), transparent 45%), linear-gradient(145deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1))',
-  rim: 'linear-gradient(150deg, rgba(255,255,255,0.95), rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.7))',
+  fill: 'linear-gradient(to top, rgba(255,255,255,0.1), transparent 45%), linear-gradient(145deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05))',
+  rim: 'linear-gradient(150deg, rgba(255,255,255,0.5), rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.32))',
+  bubbleSheen: 'radial-gradient(circle at calc(100% - 32px) 15px, rgba(255,255,255,0.4), transparent 22px)',
   shadow: 'rgba(20,26,34,0.5)',
+  dropShadow: '0 8px 16px -4px rgba(20,26,34,0.16)',
   ink: 'rgba(14,16,20,0.9)',
   lens: 'linear-gradient(to top, rgba(255,255,255,0.1), transparent 45%), linear-gradient(145deg, rgba(255,255,255,0.14), rgba(255,255,255,0.03))',
   sheen: 'radial-gradient(80% 55% at 32% 6%, rgba(255,255,255,0.45), transparent 70%)',
@@ -20,9 +23,11 @@ const DAY_GLASS = {
 }
 
 const NIGHT_GLASS = {
-  fill: 'linear-gradient(to top, rgba(160,190,230,0.12), transparent 45%), linear-gradient(145deg, rgba(236,244,255,0.16), rgba(120,140,170,0.07))',
-  rim: 'linear-gradient(150deg, rgba(255,255,255,0.6), rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.4))',
+  fill: 'linear-gradient(to top, rgba(160,190,230,0.08), transparent 45%), linear-gradient(145deg, rgba(236,244,255,0.1), rgba(120,140,170,0.03))',
+  rim: 'linear-gradient(150deg, rgba(255,255,255,0.38), rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.24))',
+  bubbleSheen: 'radial-gradient(circle at calc(100% - 32px) 15px, rgba(255,255,255,0.24), transparent 22px)',
   shadow: 'rgba(0,0,0,0.8)',
+  dropShadow: '0 8px 16px -4px rgba(0,0,0,0.34)',
   ink: 'rgba(255,255,255,0.92)',
   lens: 'linear-gradient(to top, rgba(160,190,230,0.08), transparent 45%), linear-gradient(145deg, rgba(236,244,255,0.09), rgba(120,140,170,0.02))',
   sheen: 'radial-gradient(80% 55% at 32% 6%, rgba(255,255,255,0.26), transparent 70%)',

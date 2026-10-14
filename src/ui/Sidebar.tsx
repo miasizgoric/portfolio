@@ -76,12 +76,15 @@ export function Sidebar({ onOpenMyWork }: { onOpenMyWork: () => void }) {
         >
           <div className="gd-scale">
             <div className="gd">
-              <div className="gd-shadow" style={{ opacity: 0.45 }}>
-                <div className="gd-clip" style={{ background: glass.shadow }} />
-              </div>
+              <div className="gd-bubble-shadow" style={{ boxShadow: glass.dropShadow }} />
+              <div className="gd-pill-shadow" style={{ boxShadow: glass.dropShadow }} />
               <div
                 className="gd-clip"
-                style={{ background: glass.fill, backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR }}
+                style={{
+                  background: `${glass.bubbleSheen}, ${glass.fill}`,
+                  backdropFilter: GLASS_BLUR,
+                  WebkitBackdropFilter: GLASS_BLUR,
+                }}
               />
               <div className="gd-clip gd-rim" style={{ background: glass.rim }} />
               <div className="gd-clip">

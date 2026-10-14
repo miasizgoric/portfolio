@@ -250,21 +250,27 @@ export function buildDrop(spec: DropSpec) {
   const shiftY = -(R + spec.gap + rf)
   const from = (k: number) => `translate(${fmt(shiftX * k)}px,${fmt(shiftY * k)}px)`
 
+  // The pill's shadow only shows once the pill has cleared the bubble, so it never shows through
+  // the glass it is still tucked into. box-shadow is only ever drawn outside the box, so the
+  // pill itself stays clean, and it follows the pill's shape instead of a filtered, clipped copy.
   const css = `
 .gd{position:absolute;top:0;right:0;width:${width}px;height:${height}px;pointer-events:none}
 .gd-clip{position:absolute;inset:0;clip-path:${solidPath(0, 1)}}
 .gd-rim{clip-path:${ringPath(0, 1)}}
-.gd-shadow{position:absolute;inset:0;filter:blur(9px);transform:translateY(7px)}
+.gd-bubble-shadow{position:absolute;top:0;right:0;width:${spec.bubble}px;height:${spec.bubble}px;border-radius:50%;pointer-events:none}
+.gd-pill-shadow{position:absolute;top:${2 * R + spec.gap}px;left:${width - R + rf - spec.pillWidth}px;width:${spec.pillWidth}px;height:${spec.pillHeight}px;border-radius:9999px;pointer-events:none}
 .gd-pill{position:absolute;top:${2 * R + spec.gap}px;left:${width - R + rf - spec.pillWidth}px;width:${spec.pillWidth}px;height:${spec.pillHeight}px;pointer-events:auto;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .gd-label{display:block;transform-origin:center}
-[data-phase=idle] .gd-pill{visibility:hidden}
+[data-phase=idle] .gd-pill,[data-phase=idle] .gd-pill-shadow{visibility:hidden}
 [data-phase=open] .gd-clip{animation:gd-open ${openTime}s linear both}
 [data-phase=open] .gd-rim{animation-name:gd-open-rim}
 [data-phase=open] .gd-pill{animation:gd-slide-open ${openTime}s linear both}
+[data-phase=open] .gd-pill-shadow{animation:gd-slide-open ${openTime}s linear both,gd-shadow-open ${openTime}s linear both}
 [data-phase=open] .gd-label{animation:gd-label-open ${openTime}s ease-out both}
 [data-phase=close] .gd-clip{animation:gd-close ${closeTime}s linear both}
 [data-phase=close] .gd-rim{animation-name:gd-close-rim}
 [data-phase=close] .gd-pill{animation:gd-slide-close ${closeTime}s linear both}
+[data-phase=close] .gd-pill-shadow{animation:gd-slide-close ${closeTime}s linear both,gd-shadow-close ${closeTime}s linear both}
 [data-phase=close] .gd-label{animation:gd-label-close ${closeTime}s ease-in both}
 @keyframes gd-open{${frames(OPEN, OPEN_STEP, openAttach, solid)}}
 @keyframes gd-open-rim{${frames(OPEN, OPEN_STEP, openAttach, ring)}}
@@ -272,6 +278,8 @@ export function buildDrop(spec: DropSpec) {
 @keyframes gd-close{${frames(CLOSE, CLOSE_STEP, closeAttach, solid)}}
 @keyframes gd-close-rim{${frames(CLOSE, CLOSE_STEP, closeAttach, ring)}}
 @keyframes gd-slide-close{${frames(CLOSE, CLOSE_STEP, closeAttach, slide)}}
+@keyframes gd-shadow-open{0%,15%{opacity:0}45%,100%{opacity:1}}
+@keyframes gd-shadow-close{0%,20%{opacity:1}60%,100%{opacity:0}}
 @keyframes gd-label-open{0%,22%{opacity:0;transform:${from(0.3)} scale(.5)}32%{opacity:1;transform:${from(0.06)} scale(.94)}42%{transform:translate(0,0) scale(1.03)}56%,100%{opacity:1;transform:none}}
 @keyframes gd-label-close{0%{opacity:1;transform:none}33%{opacity:.25;transform:${from(0.3)} scale(.62)}66%,100%{opacity:0;transform:${from(1)} scale(.35)}}
 @media (prefers-reduced-motion:reduce){[data-phase=open] .gd-clip,[data-phase=close] .gd-clip,[data-phase] .gd-label{animation-duration:1ms!important}}
