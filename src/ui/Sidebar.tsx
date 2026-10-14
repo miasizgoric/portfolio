@@ -70,7 +70,15 @@ export function Sidebar({ onOpenMyWork }: { onOpenMyWork: () => void }) {
   return (
     <>
       <style>{drop.css + SCALE_CSS}</style>
-      <div className="sb fixed right-4 top-4 z-30" style={{ width: BOX, height: BOX }}>
+      <div
+        className="sb fixed z-30"
+        style={{
+          width: BOX,
+          height: BOX,
+          top: 'calc(env(safe-area-inset-top, 0px) + 1rem)',
+          right: 'calc(env(safe-area-inset-right, 0px) + 1rem)',
+        }}
+      >
         <motion.div
           drag
           dragSnapToOrigin

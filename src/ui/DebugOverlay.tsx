@@ -23,6 +23,7 @@ export function DebugOverlay() {
           `frames ${diag.frames}  fps ${fps.toFixed(0)}  since last frame ${(now - diag.lastFrameAt).toFixed(0)} ms`,
           `main-thread stall max ${maxGap.toFixed(0)} ms`,
           `tier ${diag.tier}  ready ${s.sceneReady}  moved ${s.hasMoved}  ctxLost ${diag.contextLost}`,
+          ...diag.tierLog.slice(-4),
           diag.info,
           diag.gpu,
           `dpr ${window.devicePixelRatio}  ${innerWidth}x${innerHeight}`,

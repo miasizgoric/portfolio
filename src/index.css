@@ -26,6 +26,15 @@ canvas {
   touch-action: none;
 }
 
+/* The whole app is one fixed layer exactly the size of the window the browser gives it. Sizing it
+   to the large viewport (lvh) makes it taller than what is visible whenever the browser's bars
+   are showing, and the bottom of the picture is cut off. */
+.app-root {
+  position: fixed;
+  inset: 0;
+  background: #000;
+}
+
 @theme inline {
   --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 }

@@ -28,7 +28,7 @@ function App() {
   }, [onMyWork])
 
   return (
-    <div className="relative h-dvh w-screen bg-black">
+    <div className="app-root">
       {webgl && !failed ? (
         <SceneBoundary>
           <Suspense fallback={null}>

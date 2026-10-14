@@ -7,6 +7,8 @@ export const diag = {
   frames: 0,
   lastFrameAt: 0,
   tier: 0,
+  // when and why the quality tier stepped down, for the ?debug overlay
+  tierLog: [] as string[],
   contextLost: 0,
   errors: [] as string[],
   info: '',

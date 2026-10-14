@@ -19,23 +19,36 @@ import { NoWebGL } from '@/ui/NoWebGL'
 import { FrameProbe } from './FrameProbe'
 import { RenderGate } from './RenderGate'
 import { Gallery } from './Gallery'
+import { ResponsiveFov } from './ResponsiveFov'
 
 // Retina laptops and iGPUs are fill-rate bound: the same scene runs about twice as fast at
 // dpr 1 as at 1.6. The monitor only ever steps down, so quality never flaps back and forth.
+// Ordered by rough cost (pixels, then AO, then MSAA). Without antialiasing a phone's
+// upscaled picture shows hard stair-steps on every edge, so the lower tiers keep it as long as they can.
 const TIERS = [
   { dpr: 1.5, ao: true, samples: 4 },
   { dpr: 1.25, ao: true, samples: 2 },
+  { dpr: 1.5, ao: false, samples: 4 },
+  { dpr: 1.25, ao: false, samples: 2 },
   { dpr: 1, ao: false, samples: 0 },
   { dpr: 0.8, ao: false, samples: 0 },
 ]
+
+// Phones and tablets: they throttle under sustained load.
+const TOUCH = window.matchMedia('(pointer: coarse)').matches
+
+// A phone that heats up after a minute or two dips to the 40s, and at 40 fps the picture still
+// looks smooth while a drop to dpr 1 without antialiasing looks broken. So touch devices start
+// on this tier, keep it through ordinary dips, and only go lower if the frame rate collapses.
+const TOUCH_FLOOR = 3
+const TOUCH_FLOOR_FPS = 28
 
 // Phones and low-end machines would only spend their first seconds rendering at full quality
 // before the monitor steps them down, rebuilding the whole effect chain mid-load. Start them low.
 function startingTier(): number {
   const nav = navigator as Navigator & { deviceMemory?: number }
-  const touch = window.matchMedia('(pointer: coarse)').matches
   const weak = (nav.deviceMemory ?? 8) <= 4 || (nav.hardwareConcurrency ?? 8) <= 4
-  if (touch) return 2
+  if (TOUCH) return TOUCH_FLOOR
   return weak ? 1 : 0
 }
 
@@ -125,16 +138,21 @@ export function Experience() {
     >
       <PerformanceMonitor
         ms={250}
-        bounds={() => [52, 240]}
+        bounds={() => [TOUCH ? 40 : 52, 240]}
         iterations={6}
         threshold={0.75}
-        onDecline={() => {
+        onDecline={({ fps }) => {
           // Frame times are meaningless while the scene is still loading and compiling.
           if (safe || !useGalleryStore.getState().sceneReady) return
-          setTier((current) => Math.min(current + 1, TIERS.length - 1))
+          if (TOUCH && tier >= TOUCH_FLOOR && fps >= TOUCH_FLOOR_FPS) return
+          const next = Math.min(tier + 1, TIERS.length - 1)
+          if (next === tier) return
+          diag.tierLog.push(`${Math.round(performance.now() / 1000)}s ${Math.round(fps)}fps -> tier ${next}`)
+          setTier(next)
         }}
       />
       <FrameProbe tier={tier} />
+      <ResponsiveFov />
       <RenderGate />
       <Suspense fallback={null}>
         <Gallery />

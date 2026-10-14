@@ -16,7 +16,7 @@ export function MyWorkPage({ onBack }: { onBack: () => void }) {
         onClick={onBack}
         whileHover={{ x: -3 }}
         transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-        className="absolute top-8 left-8 font-mono text-[11px] lowercase tracking-[0.3em] text-white/45 hover:text-white/80"
+        className="absolute left-8 top-[calc(env(safe-area-inset-top,0px)+2rem)] font-mono text-[11px] lowercase tracking-[0.3em] text-white/45 hover:text-white/80"
       >
         back
       </motion.button>
