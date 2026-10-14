@@ -36,12 +36,76 @@ canvas {
   background: #000;
 }
 
+/* iOS 26 home-screen apps with viewport-fit=cover and a translucent status bar: 100%, svh and dvh
+   come out short by the top safe-area inset, which leaves a dead black strip along the bottom even
+   though the app is already fixed to every edge. lvh is the real screen there, and a home-screen
+   app has no browser bars for it to be taller than, so it is only used in that mode. Older iOS
+   does not match the display-mode query, hence the class set from navigator.standalone. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  html,
+  body,
+  #root {
+    height: 100lvh;
+  }
+  .app-root {
+    bottom: auto;
+    height: 100lvh;
+  }
+}
+html.standalone,
+html.standalone body,
+html.standalone #root {
+  height: 100lvh;
+}
+html.standalone .app-root {
+  bottom: auto;
+  height: 100lvh;
+}
+
 /* a gradient-filled outline: the element's background shows only in a ring of --ring width */
 .glass-ring {
   padding: var(--ring, 1.25px);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
+}
+
+/* The My Work page scrolls inside its own box, so the scrollbar is styled on that box only. The
+   standard properties come first; the -webkit- rules are for older Safari, and sit behind
+   @supports because Chromium ignores them once scrollbar-color is set. Touch browsers draw their
+   own overlay scrollbar, which cannot be coloured. */
+.purple-scroll {
+  --scroll-thumb: rgb(139 92 246 / 0.8);
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+@supports not (scrollbar-color: auto) {
+  .purple-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+  .purple-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .purple-scroll::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: 9999px;
+  }
+}
+
+/* The first screen of My Work stays put while the next panel rises over it. Where scroll-driven
+   animations exist it also lifts and fades as it gets covered; elsewhere it is simply covered. */
+@supports (animation-timeline: scroll()) {
+  .mw-lift {
+    animation: mw-lift linear both;
+    animation-timeline: scroll(nearest block);
+    animation-range: 15dvh 60dvh;
+  }
+}
+@keyframes mw-lift {
+  to {
+    opacity: 0;
+    transform: translateY(-3rem);
+  }
 }
 
 @theme inline {

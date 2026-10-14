@@ -227,6 +227,8 @@ export function CameraRig() {
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // the scene is paused behind the My Work page, which scrolls with the keyboard
+      if (useGalleryStore.getState().paused) return
       const isSpace = e.code === 'Space' || e.key === ' '
       if (isSpace) {
         e.preventDefault()
