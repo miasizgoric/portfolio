@@ -20,6 +20,7 @@ import { FrameProbe } from './FrameProbe'
 import { RenderGate } from './RenderGate'
 import { Gallery } from './Gallery'
 import { ResponsiveFov } from './ResponsiveFov'
+import { StickLens } from './StickLens'
 
 // Retina laptops and iGPUs are fill-rate bound: the same scene runs about twice as fast at
 // dpr 1 as at 1.6. The monitor only ever steps down, so quality never flaps back and forth.
@@ -34,7 +35,8 @@ const TIERS = [
   { dpr: 0.8, ao: false, samples: 0 },
 ]
 
-// Phones and tablets: they throttle under sustained load.
+// Phones and tablets: they throttle under sustained load, and they are the only devices with the
+// glass stick, so only they pay for its refraction pass.
 const TOUCH = window.matchMedia('(pointer: coarse)').matches
 
 // A phone that heats up after a minute or two dips to the 40s, and at 40 fps the picture still
@@ -169,6 +171,7 @@ export function Experience() {
           <BrightnessContrast contrast={0.06} />
           <Vignette offset={0.26} darkness={0.42} />
           <Noise opacity={0.016} premultiply />
+          {TOUCH && <StickLens />}
         </EffectComposer>
       )}
     </Canvas>

@@ -35,6 +35,14 @@ canvas {
   background: #000;
 }
 
+/* a gradient-filled outline: the element's background shows only in a ring of --ring width */
+.glass-ring {
+  padding: var(--ring, 1.25px);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
 @theme inline {
   --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 }

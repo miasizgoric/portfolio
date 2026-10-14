@@ -10,6 +10,9 @@ export interface TouchStick {
 interface GalleryState {
   stick: TouchStick | null
   setStick: (stick: TouchStick | null) => void
+  // true while the scene's post-processing draws the stick's refraction
+  lens: boolean
+  setLens: (lens: boolean) => void
   hasMoved: boolean
   introHeld: boolean
   sceneReady: boolean
@@ -29,6 +32,8 @@ interface GalleryState {
 export const useGalleryStore = create<GalleryState>((set) => ({
   stick: null,
   setStick: (stick) => set({ stick }),
+  lens: false,
+  setLens: (lens) => set({ lens }),
   hasMoved: false,
   introHeld: true,
   sceneReady: false,

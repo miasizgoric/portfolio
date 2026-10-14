@@ -2,8 +2,7 @@ import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Menu } from 'lucide-react'
 import { buildDrop } from '@/lib/glassDrop'
-import { useSkyClock } from '@/lib/sun'
-import { selectIntroVisible, useGalleryStore } from '@/store/useGalleryStore'
+import { GLASS_BLUR, useGlass } from '@/ui/glass'
 
 const BUBBLE = 48
 const PILL_WIDTH = 100
@@ -34,30 +33,12 @@ const SCALE_CSS = `.sb{--gd-s:${SCALE}}@media (pointer:coarse){.sb{--gd-s:${SCAL
 const spring = { type: 'spring' as const, damping: 20, stiffness: 300, mass: 0.5 }
 const snapBack = { bounceStiffness: 220, bounceDamping: 20 }
 
-const BLUR = 'blur(16px) saturate(1.6)'
-
-const DAY_GLASS = {
-  fill: 'linear-gradient(to top, rgba(255,255,255,0.18), transparent 45%), linear-gradient(145deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1))',
-  rim: 'linear-gradient(150deg, rgba(255,255,255,0.95), rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.7))',
-  shadow: 'rgba(20,26,34,0.5)',
-  ink: 'rgba(14,16,20,0.9)',
-}
-
-const NIGHT_GLASS = {
-  fill: 'linear-gradient(to top, rgba(160,190,230,0.12), transparent 45%), linear-gradient(145deg, rgba(236,244,255,0.16), rgba(120,140,170,0.07))',
-  rim: 'linear-gradient(150deg, rgba(255,255,255,0.6), rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.4))',
-  shadow: 'rgba(0,0,0,0.8)',
-  ink: 'rgba(255,255,255,0.92)',
-}
-
 type Phase = 'idle' | 'open' | 'close'
 
 export function Sidebar({ onOpenMyWork }: { onOpenMyWork: () => void }) {
   const [phase, setPhase] = useState<Phase>('idle')
   const lastToggle = useRef(0)
-  const { sun } = useSkyClock()
-  const introVisible = useGalleryStore(selectIntroVisible)
-  const glass = !introVisible && sun.dayFactor > 0.5 ? DAY_GLASS : NIGHT_GLASS
+  const glass = useGlass()
   const open = phase === 'open'
 
   const toggle = () => {
@@ -100,7 +81,7 @@ export function Sidebar({ onOpenMyWork }: { onOpenMyWork: () => void }) {
               </div>
               <div
                 className="gd-clip"
-                style={{ background: glass.fill, backdropFilter: BLUR, WebkitBackdropFilter: BLUR }}
+                style={{ background: glass.fill, backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR }}
               />
               <div className="gd-clip gd-rim" style={{ background: glass.rim }} />
               <div className="gd-clip">
