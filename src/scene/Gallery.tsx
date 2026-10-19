@@ -63,11 +63,12 @@ function useSceneWarmup(mounted: boolean) {
         if (live) advance(performance.now() / 1000)
       }
       if (!live) return
-      setFrameloop('always')
-      // The loop stops itself while the frameloop is 'never' and setFrameloop does not restart
-      // it, so without this the scene only began rendering if some unrelated update happened to
-      // invalidate it afterwards, and otherwise sat frozen on the last pre-roll frame.
-      invalidate()
+      // Opened straight onto the My Work page (a link, a refresh, a click while loading), the scene finishes loading but must not start drawing behind it; RenderGate starts it when the page closes.
+      if (!useGalleryStore.getState().paused) {
+        setFrameloop('always')
+        // setFrameloop does not restart a loop that stopped itself under 'never'; without invalidate() the scene stays frozen on the last pre-roll frame until something else invalidates it.
+        invalidate()
+      }
       useGalleryStore.getState().setSceneReady()
     }
     // A driver that never reports its shaders as compiled must not leave the scene paused forever.
