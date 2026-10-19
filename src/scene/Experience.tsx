@@ -84,6 +84,8 @@ export function Experience() {
   const [epoch, setEpoch] = useState(0)
   const [dead, setDead] = useState(false)
   const { dpr, ao, samples } = TIERS[tier]
+  // The canvas is told whether to draw through its prop and nothing else: fiber 9.7 puts the loop back to the prop's value every time the canvas renders again (a quality step, a safe-mode rebuild), which froze the scene whenever it had been switched on from outside.
+  const running = useGalleryStore((s) => s.sceneReady && !s.paused)
   if (DEBUG) (window as unknown as { __setTier: (t: number) => void }).__setTier = setTier
 
   // If the renderer stops producing frames or loses its GPU context, rebuild it in safe mode instead of leaving a frozen picture; if even that fails, show the static fallback.
@@ -123,7 +125,7 @@ export function Experience() {
   return (
     <Canvas
       key={epoch}
-      frameloop="never"
+      frameloop={running ? 'always' : 'never'}
       shadows={safe ? false : 'percentage'}
       camera={{ fov: 62, near: 0.1, far: 600 }}
       gl={{ antialias: safe, powerPreference: safe ? 'default' : 'high-performance' }}
