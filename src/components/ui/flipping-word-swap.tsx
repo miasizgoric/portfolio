@@ -37,8 +37,7 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
-// Lays every phrase onto the same grid of cells, centred line by line (or flush left), so the
-// block keeps one size and every character has a counterpart to flip into.
+// Lays every phrase onto the same grid of cells, centred line by line (or flush left), so the block keeps one size and every character has a counterpart to flip into.
 function toGrids(words: string[], align: 'center' | 'start'): { grids: string[][][]; rows: number; cols: number } {
   const phrases = words.map((word) => word.split('\n'))
   const rows = Math.max(1, ...phrases.map((lines) => lines.length))
@@ -63,8 +62,8 @@ interface CellProps {
   duration: number
 }
 
-// A card with one character on each face. Every flip turns it half a revolution about the
-// horizontal axis, so the two faces take turns facing out.
+// A card with one character on each face.
+// Every flip turns it half a revolution about the horizontal axis, so the two faces take turns facing out.
 function Cell({ front, back, turns, delay, duration }: CellProps) {
   return (
     <span className="inline-block" style={{ perspective: 420 }}>
@@ -83,10 +82,9 @@ function Cell({ front, back, turns, delay, duration }: CellProps) {
   )
 }
 
-// Cycles through `words`, flipping the text over character by character. The next phrase is
-// already waiting on the hidden face of each card, and a face is only rewritten once it is
-// facing away again. With `index` the cycle is driven from outside instead: the phrase to flip
-// to is written onto the hidden face as the flip starts.
+// Cycles through `words`, flipping the text over character by character.
+// The next phrase is already waiting on the hidden face of each card, and a face is only rewritten once it is facing away again.
+// With `index` the cycle is driven from outside instead: the phrase to flip to is written onto the hidden face as the flip starts.
 export function FlippingWordSwap({
   words,
   index,
@@ -134,8 +132,7 @@ export function FlippingWordSwap({
   }, [controlled, settled, count, interval, startDelay, flipMs, reduced])
 
   // Driven from outside: start a flip towards `index` as soon as the previous one has settled.
-  // Adjusted while rendering rather than in an effect, so the hidden face is already rewritten
-  // in the very render that starts the turn.
+  // Adjusted while rendering rather than in an effect, so the hidden face is already rewritten in the very render that starts the turn.
   if (index !== undefined && !flipping && index !== faces.shown) {
     setFaces({ shown: faces.shown, waiting: index })
     setFlips(settled + 1)

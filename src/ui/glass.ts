@@ -4,8 +4,8 @@ import { selectIntroVisible, useGalleryStore } from '@/store/useGalleryStore'
 // light enough that the scene stays readable through the glass, like the stick
 export const GLASS_BLUR = 'blur(6px) saturate(1.5)'
 
-// One palette per time of day. fill, rim, bubbleSheen and dropShadow dress the sidebar; the touch
-// stick is clearer glass and has its own thin tint (lens, sheen, depth, bead, lensFill) plus a shadow.
+// One palette per time of day.
+// fill, rim, bubbleSheen and dropShadow dress the sidebar; the touch stick is clearer glass and has its own thin tint (lens, sheen, depth, bead, lensFill) plus a shadow.
 const DAY_GLASS = {
   fill: 'linear-gradient(to top, rgba(255,255,255,0.1), transparent 45%), linear-gradient(145deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05))',
   rim: 'linear-gradient(150deg, rgba(255,255,255,0.5), rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.32))',

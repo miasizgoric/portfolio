@@ -5,15 +5,13 @@ import { useGlass } from '@/ui/glass'
 
 const BASE = BASE_R * 2
 const BEAD = BEAD_R * 2
-// Without the scene's refraction pass (safe mode) the glass falls back to a lightly blurred
-// disc: the scene stays readable through the base and the bead only tints and brightens it.
+// Without the scene's refraction pass (safe mode) the glass falls back to a lightly blurred disc: the scene stays readable through the base and the bead only tints and brightens it.
 const BASE_BLUR = 'blur(2px) saturate(1.4)'
 const BEAD_LENS = 'saturate(1.6) brightness(1.1)'
 // the shadow only shows outside the disc; under clear glass it would read as a grey stain
 const OUTSIDE_DISC = `radial-gradient(circle ${BASE_R}px at center, transparent ${BASE_R - 1}px, #000 ${BASE_R}px)`
 
-// The pose is driven imperatively from one rAF loop instead of by React renders, because the
-// lens shader reads the same numbers every frame and the two have to stay in step.
+// The pose is driven imperatively from one rAF loop instead of by React renders, because the lens shader reads the same numbers every frame and the two have to stay in step.
 export function TouchStick() {
   const active = useGalleryStore((s) => s.stick !== null)
   const lens = useGalleryStore((s) => s.lens)
@@ -60,9 +58,7 @@ export function TouchStick() {
     WebkitBackdropFilter: BASE_BLUR,
     boxShadow: glass.depth,
   }
-  // With the lens, neither circle has an outline of its own: the ring is drawn by the scene
-  // pass as soft frosted glass, and the bead is defined by what it bends plus a milky tint
-  // and broad reflections, as in the reference.
+  // With the lens, neither circle has an outline of its own: the ring is drawn by the scene pass as soft frosted glass, and the bead is defined by what it bends plus a milky tint and broad reflections, as in the reference.
   const beadStyle = lens
     ? { background: glass.lensFill, boxShadow: glass.beadShadow }
     : {

@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
-// ASCII symbols only: they all share the mono font's advance width, so the text keeps its
-// width while it scrambles (block and geometric glyphs fall back to other fonts and shift it).
+// ASCII symbols only: they all share the mono font's advance width, so the text keeps its width while it scrambles (block and geometric glyphs fall back to other fonts and shift it).
 const SYMBOLS = '{}[]()<>/|_-+=*&^%$#@!?;:,.~`'
 
 type Origin = 'start' | 'center' | 'end'
@@ -17,7 +16,6 @@ interface ScrambleTextProps {
   stagger?: number
   /** Where a staggered reveal begins. */
   from?: Origin
-  /** Characters to scramble through. */
   chars?: string
   /** Time between glyph swaps, in milliseconds. */
   interval?: number
@@ -33,9 +31,8 @@ function revealRank(index: number, count: number, from: Origin): number {
   return index
 }
 
-// Every character cycles through random glyphs together, re-rolled every `interval`, and the real
-// text lands once `duration` has passed (and `hold` has been released). A change of `text`
-// scrambles straight into the new word, at the new word's length.
+// Every character cycles through random glyphs together, re-rolled every `interval`, and the real text lands once `duration` has passed (and `hold` has been released).
+// A change of `text` scrambles straight into the new word, at the new word's length.
 export function ScrambleText({
   text,
   className,
@@ -102,8 +99,7 @@ export function ScrambleText({
         raf = requestAnimationFrame(tick)
         return
       }
-      // The clock stops just short of the first character resolving while the text is held,
-      // and carries on from there, stagger included, once it is released.
+      // The clock stops just short of the first character resolving while the text is held, and carries on from there, stagger included, once it is released.
       const elapsed = now - previous
       previous = now
       t = holding.current ? Math.min(t + elapsed, firstResolve - 1) : t + elapsed

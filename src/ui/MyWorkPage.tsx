@@ -11,8 +11,8 @@ const FLIP_LINE = 0.55
 // where the pinned title sits; clear of the back button, and of a phone's notch
 const TITLE_TOP = 'calc(env(safe-area-inset-top, 0px) + 4.5rem)'
 
-// The word scrambles in on arrival, as it always has. Once it has landed, the same word is handed
-// over to the flipping one, which swaps it for the project's name as the page scrolls.
+// The word scrambles in on arrival.
+// Once it has landed, the same word is handed over to the flipping one, which swaps it for the project's name as the page scrolls.
 function Title({ flipped }: { flipped: boolean }) {
   const [landed, setLanded] = useState(false)
   return (
@@ -70,9 +70,8 @@ export function MyWorkPage({ onBack }: { onBack: () => void }) {
         back
       </motion.button>
 
-      {/* `isolate` makes the scroller its own stacking context. Without it the panel and the title bar
-          (z-10, z-20) join the page's stacking context and paint over the scroller's overlay scrollbar
-          on touch screens, cutting the thumb into pieces. */}
+      {/* `isolate` makes the scroller its own stacking context.
+          Without it the panel and the title bar (z-10, z-20) join the page's stacking context and paint over the scroller's overlay scrollbar on touch screens, cutting the thumb into pieces. */}
       <div
         ref={scroller}
         tabIndex={-1}
@@ -96,8 +95,7 @@ export function MyWorkPage({ onBack }: { onBack: () => void }) {
             </div>
           </section>
 
-          {/* a zero-height sticky anchor, so the title bar takes no room in the flow; the fade under it
-              lets the page slide beneath the title instead of colliding with it */}
+          {/* a zero-height sticky anchor, so the title bar takes no room in the flow; the fade under it lets the page slide beneath the title instead of colliding with it */}
           <div className="sticky top-0 z-20 h-0">
             <div
               className="flex justify-start bg-linear-to-b from-black from-75% to-transparent px-8 pb-8"

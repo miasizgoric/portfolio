@@ -27,20 +27,17 @@ canvas {
   touch-action: none;
 }
 
-/* The whole app is one fixed layer exactly the size of the window the browser gives it. Sizing it
-   to the large viewport (lvh) makes it taller than what is visible whenever the browser's bars
-   are showing, and the bottom of the picture is cut off. */
+/* The whole app is one fixed layer exactly the size of the window the browser gives it.
+   Sizing it to the large viewport (lvh) makes it taller than what is visible whenever the browser's bars are showing, and the bottom of the picture is cut off. */
 .app-root {
   position: fixed;
   inset: 0;
   background: #000;
 }
 
-/* iOS 26 home-screen apps with viewport-fit=cover and a translucent status bar: 100%, svh and dvh
-   come out short by the top safe-area inset, which leaves a dead black strip along the bottom even
-   though the app is already fixed to every edge. lvh is the real screen there, and a home-screen
-   app has no browser bars for it to be taller than, so it is only used in that mode. Older iOS
-   does not match the display-mode query, hence the class set from navigator.standalone. */
+/* iOS 26 home-screen apps with viewport-fit=cover and a translucent status bar: 100%, svh and dvh come out short by the top safe-area inset, which leaves a dead black strip along the bottom even though the app is already fixed to every edge.
+   lvh is the real screen there, and a home-screen app has no browser bars for it to be taller than, so it is only used in that mode.
+   Older iOS does not match the display-mode query, hence the class set from navigator.standalone. */
 @media (display-mode: standalone), (display-mode: fullscreen) {
   html,
   body,
@@ -77,10 +74,9 @@ html.standalone .app-root {
   mask-composite: exclude;
 }
 
-/* The My Work page scrolls inside its own box, so the scrollbar is styled on that box only. The
-   standard properties come first; the -webkit- rules are for older Safari, and sit behind
-   @supports because Chromium ignores them once scrollbar-color is set. Touch browsers draw their
-   own overlay scrollbar, which cannot be coloured. */
+/* The My Work page scrolls inside its own box, so the scrollbar is styled on that box only.
+   The standard properties come first; the -webkit- rules are for older Safari, and sit behind @supports because Chromium ignores them once scrollbar-color is set.
+   Touch browsers draw their own overlay scrollbar, which cannot be coloured. */
 .purple-scroll {
   --scroll-thumb: rgb(139 92 246 / 0.8);
   scrollbar-width: thin;
@@ -99,8 +95,8 @@ html.standalone .app-root {
   }
 }
 
-/* The first screen of My Work stays put while the next panel rises over it. Where scroll-driven
-   animations exist it also lifts and fades as it gets covered; elsewhere it is simply covered. */
+/* The first screen of My Work stays put while the next panel rises over it.
+   Where scroll-driven animations exist it also lifts and fades as it gets covered; elsewhere it is simply covered. */
 @supports (animation-timeline: scroll()) {
   .mw-lift {
     animation: mw-lift linear both;

@@ -31,9 +31,8 @@ function useStagedMount(stages: number, enabled: boolean): number {
   return stage
 }
 
-// Frames drawn through the composer while the intro still covers the canvas. The first
-// composer frames link the N8AO, bloom and shadow programs synchronously; doing that
-// here keeps those stalls out of the reveal.
+// Frames drawn through the composer while the intro still covers the canvas.
+// The first composer frames link the N8AO, bloom and shadow programs synchronously; doing that here keeps those stalls out of the reveal.
 const PREROLL_FRAMES = 3
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))

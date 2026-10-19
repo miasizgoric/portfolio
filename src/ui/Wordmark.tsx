@@ -23,8 +23,7 @@ export function Wordmark() {
 
   useEffect(() => () => window.clearTimeout(releaseTimer.current), [])
 
-  // The wordmark keeps scrambling as a loading state: it only lands once the scene is ready and
-  // every instruction has had its turn, and the intro lifts a beat after that.
+  // The wordmark keeps scrambling as a loading state: it only lands once the scene is ready and every instruction has had its turn, and the intro lifts a beat after that.
   const landed = () => {
     releaseTimer.current = window.setTimeout(releaseIntro, RESOLVED_BEAT_MS)
   }

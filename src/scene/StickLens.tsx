@@ -5,10 +5,8 @@ import { Uniform, Vector2, Vector3, type WebGLRenderer } from 'three'
 import { BASE_R, BEAD_R, LEAN, fadeAmount, popScale, pose } from '@/lib/stickPose'
 import { useGalleryStore } from '@/store/useGalleryStore'
 
-// Safari cannot refract through backdrop-filter, so the glass stick bends the picture here
-// instead, in the last post-processing pass: a soft frosted ring, and a lens that magnifies the
-// middle and pulls colour apart at its edge. Everything is in CSS pixels (y down); the DOM
-// layers drawn over it supply the milky tint, the reflections and the shadow.
+// Safari cannot refract through backdrop-filter, so the glass stick bends the picture here instead, in the last post-processing pass: a soft frosted ring, and a lens that magnifies the middle and pulls colour apart at its edge.
+// Everything is in CSS pixels (y down); the DOM layers drawn over it supply the milky tint, the reflections and the shadow.
 const FRAGMENT = /* glsl */ `
 uniform vec2 uView;
 uniform vec3 uBase;
@@ -19,8 +17,7 @@ vec3 grab(vec2 px) {
   return texture2D(inputBuffer, vec2(px.x / uView.x, 1.0 - px.y / uView.y)).rgb;
 }
 
-// a spiral of taps, turned a little differently at every pixel: thin lines in the picture
-// come out as fine grain, like frosted glass, instead of ghost copies
+// a spiral of taps, turned a little differently at every pixel: thin lines in the picture come out as fine grain, like frosted glass, instead of ghost copies
 vec3 frost(vec2 px, float spread) {
   float turn = 6.2831853 * fract(52.9829189 * fract(dot(px, vec2(0.06711056, 0.00583715))));
   vec3 sum = vec3(0.0);
@@ -41,8 +38,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     vec2 d = p - uBase.xy;
     float dist = length(d);
     if (dist < uBase.z + 1.0) {
-      // a soft ring of frosted glass: no edge line, it fades in and out like the torus in the
-      // reference, brightest a little inside its outer edge
+      // a soft ring of frosted glass: no edge line, it fades in and out like the torus in the reference, brightest a little inside its outer edge
       float t = dist / uBase.z;
       float ring = smoothstep(0.5, 0.85, t);
       vec2 dir = d / max(dist, 0.001);
@@ -55,8 +51,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     vec2 e = p - uBead.xy;
     float er = length(e);
     if (er < uBead.z + 1.0) {
-      // magnified in the middle, and near the rim the picture is squeezed and then cut off
-      // against what lies outside it, with the colours pulled apart
+      // magnified in the middle, and near the rim the picture is squeezed and then cut off against what lies outside it, with the colours pulled apart
       float tb = er / uBead.z;
       float k = 0.56 + 0.44 * pow(tb, 2.6) + 0.16 * smoothstep(0.8, 1.0, tb);
       float split = 0.04 * tb + 0.11 * tb * tb * tb;

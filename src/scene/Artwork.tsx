@@ -7,8 +7,7 @@ import { getWallInfo, wallPointToWorld, wallRotationY } from '@/lib/roomGeometry
 import { useGalleryStore } from '@/store/useGalleryStore'
 import { loadBitmap } from '@/world/bitmaps'
 
-// Once the visitor walks into the room each screen takes its turn: the tube's line opens up,
-// it shows snow for a moment, then the picture comes through.
+// Once the visitor walks into the room each screen takes its turn: the tube's line opens up, it shows snow for a moment, then the picture comes through.
 const POWER_ON_SECONDS = 0.5
 const STATIC_SECONDS = 1.7
 const PICTURE_SECONDS = 1.2
@@ -36,8 +35,8 @@ const FRAME_OVERLAP = 0.012
 
 const SCREEN_GEOMETRY = new THREE.PlaneGeometry(1, 1, SCREEN_SEGMENTS, SCREEN_SEGMENTS)
 
-// Like on a real set, the controls sit in a recessed panel on the front of the cabinet, in a
-// column to the right of the tube. The cabinet is widened by CONTROL_STRIP to make room for it.
+// Like on a real set, the controls sit in a recessed panel on the front of the cabinet, in a column to the right of the tube.
+// The cabinet is widened by CONTROL_STRIP to make room for it.
 const CONTROL_STRIP = 0.34
 const CONTROL_PANEL_WIDTH = 0.26
 const CONTROL_PANEL_HEIGHT = 1
@@ -137,8 +136,7 @@ void main() {
   vec3 viewDir = normalize(uViewLocal - surface);
   float ndv = clamp(dot(normal, viewDir), 0.0, 1.0);
 
-  // Barrel distortion: the middle of the picture is magnified, the corners are squeezed out of
-  // the frame, which is what makes a bulging tube read as curved from straight on.
+  // Barrel distortion: the middle of the picture is magnified, the corners are squeezed out of the frame, which is what makes a bulging tube read as curved from straight on.
   vec2 raster = n * (1.0 + ${glslFloat(PICTURE_BARREL)} * dot(n, n)) / ${glslFloat(1 + PICTURE_BARREL)};
   float travel = (${glslFloat(SCREEN_BULGE)} * profile + ${glslFloat(PICTURE_DEPTH)}) / max(viewDir.z, 0.25);
   vec2 behind = (raster - viewDir.xy * travel / uHalfSize) * 0.5;
@@ -218,8 +216,7 @@ function useArtworkTexture(url: string | undefined): THREE.Texture | null {
     let loaded: THREE.Texture | null = null
     let cancelled = false
 
-    // The source JPEGs are up to 3637x2550; decoding and downscaling them on the main thread
-    // blocks it for seconds on a phone, so a worker does it and only the small bitmap comes back.
+    // The source JPEGs are up to 3637x2550; decoding and downscaling them on the main thread blocks it for seconds on a phone, so a worker does it and only the small bitmap comes back.
     loadBitmap(url, ARTWORK_MAX_EDGE)
       .then((bitmap) => bitmap ?? decodeOnMainThread(url))
       .then((bitmap) => {
@@ -290,8 +287,7 @@ export function Artwork({ room, artwork }: { room: Room; artwork: ArtworkData })
   const rotationY = wallRotationY(info)
   const anchor = wallPointToWorld(room, artwork.wall, artwork.offset, artwork.elevation)
 
-  // A portrait picture gets an upright, narrower set: the TV is never turned on its side, so the
-  // controls stay on the right of every one.
+  // A portrait picture gets an upright, narrower set: the TV is never turned on its side, so the controls stay on the right of every one.
   const { screenWidth, screenHeight } = useMemo(() => {
     const box = Math.max(artwork.width, artwork.height)
     const image = texture?.image as { width?: number; height?: number } | undefined

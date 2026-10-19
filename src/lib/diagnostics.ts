@@ -1,4 +1,5 @@
-// Live health numbers for the ?debug overlay. Nothing here runs unless the overlay is requested.
+// Renderer health numbers.
+// The stall watchdog reads lastFrameAt; the rest, and the error capture below, only feed the ?debug overlay.
 export const DEBUG = new URLSearchParams(location.search).has('debug')
 
 export const SCENE_FAILED = 'scene-failed'

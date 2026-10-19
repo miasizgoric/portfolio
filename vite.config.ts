@@ -13,8 +13,7 @@ export default defineConfig({
   build: {
     rolldownOptions: {
       output: {
-        // Vendor code changes rarely; keeping it out of the scene chunk lets the browser
-        // fetch the pieces in parallel and keep them cached across deploys.
+        // Vendor code changes rarely; keeping it out of the scene chunk lets the browser fetch the pieces in parallel and keep them cached across deploys.
         codeSplitting: {
           groups: [
             { name: 'react', test: /node_modules[\/](react|react-dom|scheduler)[\/]/, priority: 40 },

@@ -19,8 +19,8 @@ const WARNING_WORDS = [
 const WARNING_TEXT =
   'something went wrong in your browser. refresh the page or try another browser for the site to work fully.'
 
-// Shown instead of the scene whenever the browser cannot run it. Only the warning: the intro
-// (and its wordmark) is switched off through the store.
+// Shown instead of the scene whenever the browser cannot run it.
+// Only the warning: the intro (and its wordmark) is switched off through the store.
 export function NoWebGL() {
   useLayoutEffect(() => {
     useGalleryStore.getState().setSceneFailed()

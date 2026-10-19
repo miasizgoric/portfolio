@@ -36,8 +36,8 @@ function computeOnMainThread() {
   }, 0)
 }
 
-// Generation runs in a worker so the page keeps painting and responding while it loads. If
-// workers are unavailable the same code runs on the main thread, just later and in one go.
+// Generation runs in a worker so the page keeps painting and responding while it loads.
+// If workers are unavailable the same code runs on the main thread, just later and in one go.
 export function startWorld() {
   if (started) return
   started = true
