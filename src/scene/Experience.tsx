@@ -22,10 +22,9 @@ import { Gallery } from './Gallery'
 import { ResponsiveFov } from './ResponsiveFov'
 import { StickLens } from './StickLens'
 
-// Retina laptops and iGPUs are fill-rate bound: the same scene runs about twice as fast at
-// dpr 1 as at 1.6. The monitor only ever steps down, so quality never flaps back and forth.
-// Ordered by rough cost (pixels, then AO, then MSAA). Without antialiasing a phone's
-// upscaled picture shows hard stair-steps on every edge, so the lower tiers keep it as long as they can.
+// Retina laptops and iGPUs are fill-rate bound: the same scene runs about twice as fast at dpr 1 as at 1.6.
+// The monitor only ever steps down, so quality never flaps back and forth.
+// Ordered by rough cost (pixels, then AO, then MSAA); the lower tiers keep antialiasing as long as they can, because an upscaled phone picture shows hard stair-steps without it.
 const TIERS = [
   { dpr: 1.5, ao: true, samples: 4 },
   { dpr: 1.25, ao: true, samples: 2 },
@@ -35,18 +34,15 @@ const TIERS = [
   { dpr: 0.8, ao: false, samples: 0 },
 ]
 
-// Phones and tablets: they throttle under sustained load, and they are the only devices with the
-// glass stick, so only they pay for its refraction pass.
+// Phones and tablets: they throttle under sustained load, and they are the only devices with the glass stick, so only they pay for its refraction pass.
 const TOUCH = window.matchMedia('(pointer: coarse)').matches
 
-// A phone that heats up after a minute or two dips to the 40s, and at 40 fps the picture still
-// looks smooth while a drop to dpr 1 without antialiasing looks broken. So touch devices start
-// on this tier, keep it through ordinary dips, and only go lower if the frame rate collapses.
+// A phone that heats up after a minute or two dips to the 40s, and at 40 fps the picture still looks smooth while a drop to dpr 1 without antialiasing looks broken.
+// So touch devices start on this tier, keep it through ordinary dips, and only go lower if the frame rate collapses.
 const TOUCH_FLOOR = 3
 const TOUCH_FLOOR_FPS = 28
 
-// Phones and low-end machines would only spend their first seconds rendering at full quality
-// before the monitor steps them down, rebuilding the whole effect chain mid-load. Start them low.
+// Phones and low-end machines start low: at full quality the monitor would step them down within seconds, rebuilding the whole effect chain mid-load.
 function startingTier(): number {
   const nav = navigator as Navigator & { deviceMemory?: number }
   const weak = (nav.deviceMemory ?? 8) <= 4 || (nav.hardwareConcurrency ?? 8) <= 4
@@ -54,16 +50,20 @@ function startingTier(): number {
   return weak ? 1 : 0
 }
 
-const SAFE_KEY = 'scene-safe-mode-v2'
+// iOS reclaims the GPU context whenever a tab is backgrounded, which counts as a failure here, so the fallback is only remembered for a short while: one hiccup must not leave a phone on the lightweight renderer for good.
+const SAFE_KEY = 'scene-safe-mode-v3'
+const SAFE_MEMORY_MS = 10 * 60 * 1000
 const STALL_MS = 4000
 
 function readSafe(): boolean {
   // ?safe forces the lightweight renderer, ?safe=0 clears a remembered fallback.
   const param = new URLSearchParams(location.search).get('safe')
   try {
+    // the flag an earlier build left behind never expired
+    localStorage.removeItem('scene-safe-mode-v2')
     if (param === '0') localStorage.removeItem(SAFE_KEY)
     else if (param !== null) return true
-    return localStorage.getItem(SAFE_KEY) === '1'
+    return Date.now() - Number(localStorage.getItem(SAFE_KEY)) < SAFE_MEMORY_MS
   } catch {
     return false
   }
@@ -71,7 +71,7 @@ function readSafe(): boolean {
 
 function rememberSafe() {
   try {
-    localStorage.setItem(SAFE_KEY, '1')
+    localStorage.setItem(SAFE_KEY, String(Date.now()))
   } catch {
     /* private mode: the fallback still applies for this visit */
   }
@@ -86,8 +86,7 @@ export function Experience() {
   const { dpr, ao, samples } = TIERS[tier]
   if (DEBUG) (window as unknown as { __setTier: (t: number) => void }).__setTier = setTier
 
-  // If the renderer stops producing frames or loses its GPU context, rebuild it in safe mode
-  // instead of leaving a frozen picture; if even that fails, show the static fallback.
+  // If the renderer stops producing frames or loses its GPU context, rebuild it in safe mode instead of leaving a frozen picture; if even that fails, show the static fallback.
   useEffect(() => {
     const fail = () => {
       if (!safe) {
