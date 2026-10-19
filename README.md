@@ -61,3 +61,7 @@ src/
 public/
   artwork/  Images shown in the gallery
 ```
+
+## Credits
+
+The 3D brain on the My Work page is [human-brain](https://sketchfab.com/3d-models/human-brain-e073c2590bc24daaa7323f4daa5b7784) by [Yash_Dandavate](https://sketchfab.com/Yash_Dandavate), licensed [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/). Its textures, tangents and UV coordinates were removed to cut the file from 9.4 MB to under 1 MB; the geometry is unchanged.

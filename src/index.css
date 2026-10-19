@@ -62,6 +62,13 @@ html.standalone .app-root {
   height: 100lvh;
 }
 
+/* The brain on the My Work page sits inside a scrolling page.
+   OrbitControls sets touch-action: none, which would trap a finger that lands on it; this lets vertical swipes keep scrolling the page while horizontal ones turn the brain.
+   The mouse wheel is not used for zoom, so it scrolls too. */
+.brain-canvas canvas {
+  touch-action: pan-y !important;
+}
+
 /* a gradient-filled outline: the element's background shows only in a ring of --ring width */
 .glass-ring {
   padding: var(--ring, 1.25px);

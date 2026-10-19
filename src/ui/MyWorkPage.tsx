@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { motion } from 'framer-motion'
 import { FlippingWordSwap } from '@/components/ui/flipping-word-swap'
-import { MnemosyneWireframe } from './MnemosyneWireframe'
+import { MnemosyneHome } from './MnemosyneHome'
 import { ScrambleText } from './ScrambleText'
 
 const SOFT_EASE = [0.22, 1, 0.36, 1] as const
@@ -114,7 +114,7 @@ export function MyWorkPage({ onBack }: { onBack: () => void }) {
             className="relative z-10 min-h-dvh bg-black px-6 pb-32 before:pointer-events-none before:absolute before:inset-x-0 before:-top-24 before:h-24 before:bg-linear-to-t before:from-black before:to-transparent"
             style={{ paddingTop: 'calc(var(--title-top) + 5.5rem)' }}
           >
-            <MnemosyneWireframe />
+            <MnemosyneHome />
           </section>
         </div>
       </div>
