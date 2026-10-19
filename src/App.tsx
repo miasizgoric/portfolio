@@ -44,7 +44,7 @@ function App() {
       <Sidebar onOpenMyWork={() => navigate(MY_WORK)} />
 
       <AnimatePresence>
-        {path === MY_WORK && <MyWorkPage key="my-work" onBack={() => navigate('/')} />}
+        {onMyWork && <MyWorkPage key="my-work" onBack={() => navigate('/')} />}
       </AnimatePresence>
     </div>
   )

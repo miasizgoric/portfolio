@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { rooms, PLAYER_START, EYE_HEIGHT } from '@/data/rooms'
 import { resolveMove, isInBounds, findRoomAt, groundHeightAt } from '@/lib/collision'
 import { DEBUG } from '@/lib/diagnostics'
+import { BASE_R as STICK_RADIUS } from '@/lib/stickPose'
 import { useGalleryStore } from '@/store/useGalleryStore'
 
 const START_POSITION = new THREE.Vector3(...PLAYER_START)
@@ -23,7 +24,6 @@ const KEY_TURN_SPEED = 1.6
 const LOOK_DAMPING = 9
 const DOUBLE_TAP_MS = 320
 const TOUCH_LOOK_SENSITIVITY = 0.0042
-const STICK_RADIUS = 56
 
 interface Keys {
   forward: boolean
@@ -34,6 +34,17 @@ interface Keys {
   turnRight: boolean
   up: boolean
   down: boolean
+}
+
+const NO_KEYS: Keys = {
+  forward: false,
+  back: false,
+  left: false,
+  right: false,
+  turnLeft: false,
+  turnRight: false,
+  up: false,
+  down: false,
 }
 
 function setKey(keys: Keys, e: KeyboardEvent, value: boolean): boolean {
@@ -91,16 +102,7 @@ function setKey(keys: Keys, e: KeyboardEvent, value: boolean): boolean {
 
 export function CameraRig() {
   const { camera, gl } = useThree()
-  const keys = useRef<Keys>({
-    forward: false,
-    back: false,
-    left: false,
-    right: false,
-    turnLeft: false,
-    turnRight: false,
-    up: false,
-    down: false,
-  })
+  const keys = useRef<Keys>({ ...NO_KEYS })
   const cursor = useRef({ x: 0, y: 0, inside: false })
   const target = useRef({ yaw: 0, pitch: 0 })
   const look = useRef({ yaw: 0, pitch: 0 })
@@ -199,14 +201,13 @@ export function CameraRig() {
       cursor.current.inside = false
     }
 
-    // Opening the My Work page pauses the scene; a finger or key held at that moment would
-    // otherwise still count as pressed when it comes back.
+    // Opening the My Work page pauses the scene; a finger or key held at that moment would otherwise still count as pressed when it comes back.
     const unsubscribe = useGalleryStore.subscribe((state, prev) => {
       if (!state.paused || prev.paused) return
       touches.clear()
       stick.current.x = 0
       stick.current.y = 0
-      Object.assign(keys.current, { forward: false, back: false, left: false, right: false, turnLeft: false, turnRight: false, up: false, down: false })
+      Object.assign(keys.current, NO_KEYS)
       useGalleryStore.getState().setStick(null)
     })
 
@@ -311,8 +312,7 @@ export function CameraRig() {
       return
     }
 
-    // Landing on a roof or a sea stack keeps the visitor standing there instead of dropping to
-    // the terrain or the room floor underneath.
+    // Landing on a roof or a sea stack keeps the visitor standing there instead of dropping to the terrain or the room floor underneath.
     const groundY = groundHeightAt(
       rooms,
       camera.position.x,

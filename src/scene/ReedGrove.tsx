@@ -19,8 +19,7 @@ const BARK_NORMAL_SCALE = new THREE.Vector2(1.4, 1.4)
 // Wind sways geometry by up to about a metre beyond its rest bounds.
 const WIND_MARGIN = 1.5
 
-// One InstancedMesh per grid cell so the renderer can cull whole patches instead of
-// drawing every instance in the world each frame (and again in the shadow pass).
+// One InstancedMesh per grid cell so the renderer can cull whole patches instead of drawing every instance in the world each frame (and again in the shadow pass).
 function toInstancedChunks(
   geometry: THREE.BufferGeometry,
   material: THREE.Material,
@@ -31,7 +30,7 @@ function toInstancedChunks(
   for (const chunk of chunks) {
     const mesh = new THREE.InstancedMesh(geometry, material, chunk.count)
     mesh.instanceMatrix = new THREE.InstancedBufferAttribute(chunk.matrices, 16)
-    if (chunk.colors) mesh.instanceColor = new THREE.InstancedBufferAttribute(chunk.colors, 3)
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(chunk.colors, 3)
     mesh.computeBoundingSphere()
     if (mesh.boundingSphere) mesh.boundingSphere.radius += WIND_MARGIN
     mesh.castShadow = options.castShadow ?? false

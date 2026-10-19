@@ -15,8 +15,7 @@ export const CHUNKS = {
   blades: { cell: 12 },
 } satisfies Record<string, ChunkOptions>
 
-// Crowns reach several metres sideways; foliage that would end up inside the house below the
-// roofline is dropped instead of clearing the whole forest around it.
+// Crowns reach several metres sideways; foliage that would end up inside the house below the roofline is dropped instead of clearing the whole forest around it.
 const ROOF_TOP = 7.5
 const intrudesHouse = (x: number, y: number, z: number, radius: number) =>
   y - radius < ROOF_TOP && distanceToFootprint(x, z, FOOTPRINT) < radius
@@ -43,7 +42,7 @@ export type LayerName = keyof typeof CHUNKS
 export interface ChunkArrays {
   count: number
   matrices: Float32Array
-  colors: Float32Array | null
+  colors: Float32Array
 }
 
 function buildGrove(): Record<LayerName, InstanceBuffer> {
@@ -67,12 +66,11 @@ function buildGrove(): Record<LayerName, InstanceBuffer> {
     return field.height(x, z) < SEA.level + 3
   }
 
-  // Far trees lie outside the 45 m shadow frustum; keeping them in their own meshes lets the
-  // shadow pass skip them instead of rasterising thousands of instances that cannot land on screen.
-  const trunkWriters = { near: createInstanceWriter(1000, true), far: createInstanceWriter(1600, true) }
-  const flareWriter = createInstanceWriter(1000, true)
-  const branchWriter = createInstanceWriter(6400, true)
-  const canopyWriters = { near: createInstanceWriter(14000, true), far: createInstanceWriter(7000, true) }
+  // Far trees lie outside the 45 m shadow frustum; keeping them in their own meshes lets the shadow pass skip them instead of rasterising thousands of instances that cannot land on screen.
+  const trunkWriters = { near: createInstanceWriter(1000), far: createInstanceWriter(1600) }
+  const flareWriter = createInstanceWriter(1000)
+  const branchWriter = createInstanceWriter(6400)
+  const canopyWriters = { near: createInstanceWriter(14000), far: createInstanceWriter(7000) }
   const trunkColor = new THREE.Color()
   const leafColor = new THREE.Color()
 
@@ -131,9 +129,7 @@ function buildGrove(): Record<LayerName, InstanceBuffer> {
           radius * 2.7,
           trunkColor,
         )
-      }
 
-      if (band.near) {
         const branches = 5 + Math.floor(r() * 4)
         for (let b = 0; b < branches; b++) {
           const angle = (b / branches) * Math.PI * 2 + r() * 0.8
@@ -188,7 +184,7 @@ function buildGrove(): Record<LayerName, InstanceBuffer> {
     }
   }
 
-  const frondWriter = createInstanceWriter(2200, true)
+  const frondWriter = createInstanceWriter(2200)
   const frondColor = new THREE.Color()
   const frondPoints = scatter({
     count: 1400,
@@ -223,7 +219,7 @@ function buildGrove(): Record<LayerName, InstanceBuffer> {
     )
   }
 
-  const bladeWriter = createInstanceWriter(14500, true)
+  const bladeWriter = createInstanceWriter(14500)
   const bladeColor = new THREE.Color()
   const bladeBands = [
     { count: 6500, seed: 6011, outer: 56, bias: 0.4 },
@@ -274,10 +270,7 @@ function buildGrove(): Record<LayerName, InstanceBuffer> {
   }
 }
 
-
-// Wind sways geometry by up to about a metre beyond its rest bounds; the renderer adds that
-// margin when it builds each chunk. Instances are grouped per grid cell so whole patches can
-// be culled instead of drawing every instance in the world (and again in the shadow pass).
+// Instances are grouped per grid cell so whole patches can be culled, in the shadow pass too.
 function chunkLayer(buffer: InstanceBuffer, cell: number): ChunkArrays[] {
   const cells = new Map<string, number[]>()
   for (let i = 0; i < buffer.count; i++) {
@@ -298,7 +291,7 @@ function chunkLayer(buffer: InstanceBuffer, cell: number): ChunkArrays[] {
   const chunks: ChunkArrays[] = []
   for (const indices of cells.values()) {
     const matrices = new Float32Array(indices.length * 16)
-    const colors = buffer.color ? new Float32Array(indices.length * 3) : null
+    const colors = new Float32Array(indices.length * 3)
     indices.forEach((source, slot) => {
       const o = source * 3
       position.set(buffer.position[o], buffer.position[o + 1], buffer.position[o + 2])
@@ -306,11 +299,9 @@ function chunkLayer(buffer: InstanceBuffer, cell: number): ChunkArrays[] {
       quaternion.setFromEuler(euler)
       scale.set(buffer.scale[o], buffer.scale[o + 1], buffer.scale[o + 2])
       matrix.compose(position, quaternion, scale).toArray(matrices, slot * 16)
-      if (colors && buffer.color) {
-        colors[slot * 3] = buffer.color[o]
-        colors[slot * 3 + 1] = buffer.color[o + 1]
-        colors[slot * 3 + 2] = buffer.color[o + 2]
-      }
+      colors[slot * 3] = buffer.color[o]
+      colors[slot * 3 + 1] = buffer.color[o + 1]
+      colors[slot * 3 + 2] = buffer.color[o + 2]
     })
     chunks.push({ count: indices.length, matrices, colors })
   }

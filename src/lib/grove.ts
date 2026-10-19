@@ -70,11 +70,10 @@ export interface InstanceBuffer {
   position: Float32Array
   rotation: Float32Array
   scale: Float32Array
-  color: Float32Array | null
+  color: Float32Array
 }
 
 interface InstanceWriter {
-  readonly length: number
   push(
     px: number,
     py: number,
@@ -85,22 +84,19 @@ interface InstanceWriter {
     sx: number,
     sy: number,
     sz: number,
-    color?: THREE.Color,
+    color: THREE.Color,
   ): void
   finish(): InstanceBuffer
 }
 
-export function createInstanceWriter(capacity: number, withColor: boolean): InstanceWriter {
+export function createInstanceWriter(capacity: number): InstanceWriter {
   const position = new Float32Array(capacity * 3)
   const rotation = new Float32Array(capacity * 3)
   const scale = new Float32Array(capacity * 3)
-  const color = withColor ? new Float32Array(capacity * 3) : null
+  const color = new Float32Array(capacity * 3)
   let n = 0
 
   return {
-    get length() {
-      return n
-    },
     push(px, py, pz, rx, ry, rz, sx, sy, sz, c) {
       if (n >= capacity) return
       const i = n * 3
@@ -113,11 +109,9 @@ export function createInstanceWriter(capacity: number, withColor: boolean): Inst
       scale[i] = sx
       scale[i + 1] = sy
       scale[i + 2] = sz
-      if (color && c) {
-        color[i] = c.r
-        color[i + 1] = c.g
-        color[i + 2] = c.b
-      }
+      color[i] = c.r
+      color[i + 1] = c.g
+      color[i + 2] = c.b
       n++
     },
     finish() {
@@ -126,7 +120,7 @@ export function createInstanceWriter(capacity: number, withColor: boolean): Inst
         position: position.subarray(0, n * 3),
         rotation: rotation.subarray(0, n * 3),
         scale: scale.subarray(0, n * 3),
-        color: color ? color.subarray(0, n * 3) : null,
+        color: color.subarray(0, n * 3),
       }
     },
   }
@@ -490,9 +484,9 @@ function makeCanvas(w: number, h: number) {
   return { canvas, ctx }
 }
 
-function finishTexture(canvas: HTMLCanvasElement, srgb: boolean) {
+function finishTexture(canvas: HTMLCanvasElement) {
   const tex = new THREE.CanvasTexture(canvas)
-  tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
+  tex.colorSpace = THREE.SRGBColorSpace
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.ClampToEdgeWrapping
   tex.anisotropy = 4
@@ -536,6 +530,5 @@ export function makeFrondTexture(seed: number): THREE.CanvasTexture {
     }
   }
 
-  return finishTexture(canvas, true)
+  return finishTexture(canvas)
 }
-

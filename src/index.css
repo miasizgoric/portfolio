@@ -69,9 +69,9 @@ html.standalone .app-root {
   touch-action: pan-y !important;
 }
 
-/* a gradient-filled outline: the element's background shows only in a ring of --ring width */
+/* a gradient-filled outline: the element's background shows only in a ring 1.25px wide */
 .glass-ring {
-  padding: var(--ring, 1.25px);
+  padding: 1.25px;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;

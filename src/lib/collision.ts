@@ -22,11 +22,6 @@ function roomRect(room: Room): Rect {
   }
 }
 
-function insideInsetRoom(room: Room, x: number, z: number, r: number): boolean {
-  const rect = roomRect(room)
-  return x >= rect.minX + r && x <= rect.maxX - r && z >= rect.minZ + r && z <= rect.maxZ - r
-}
-
 function insideDoorwayCorridor(room: Room, x: number, z: number, r: number): boolean {
   for (const doorway of room.doorways) {
     const info = getWallInfo(room, doorway.wall)
@@ -49,8 +44,7 @@ function insideOutdoors(rooms: Room[], x: number, z: number, r: number): boolean
 
 const MAX_STEP = 0.7
 
-// A visitor standing high on one roof must not walk into the mass of a taller neighbour: at
-// that height the next room's wall or roof is in the way, not its floor.
+// A visitor standing high on one roof must not walk into the mass of a taller neighbour: at that height the next room's wall or roof is in the way, not its floor.
 function inRoomMass(room: Room | undefined, feetY: number): boolean {
   if (!room) return false
   return feetY > room.center[1] + MAX_STEP && feetY < ceilingY(room) + ROOF_CLEARANCE
@@ -60,7 +54,7 @@ function isWalkable(rooms: Room[], x: number, z: number, here?: Room, feetY = 0)
   const there = findRoomAt(rooms, x, z)
   if (there && there !== here && inRoomMass(there, feetY)) return false
   for (const room of rooms) {
-    if (insideInsetRoom(room, x, z, PLAYER_RADIUS)) return true
+    if (insideRect(roomRect(room), x, z, -PLAYER_RADIUS)) return true
   }
   for (const room of rooms) {
     if (insideDoorwayCorridor(room, x, z, PLAYER_RADIUS)) return true
@@ -73,8 +67,8 @@ export function isInBounds(rooms: Room[], x: number, z: number): boolean {
   return isIndoors(rooms, x, z) || onStackTop(x, z) || OUTDOOR_ZONES.some((zone) => insideRect(zone, x, z))
 }
 
-// The surface under a point: terrain outdoors, the floor inside a room, or the roof when the
-// feet are already above it. `feetY` is what lets a visitor who lands on the roof stay there.
+// The surface under a point: terrain outdoors, the floor inside a room, or the roof when the feet are already above it.
+// `feetY` is what lets a visitor who lands on the roof stay there.
 export function groundHeightAt(rooms: Room[], x: number, z: number, feetY: number): number {
   const room = findRoomAt(rooms, x, z)
   if (!room) return terrainHeightAt(x, z)

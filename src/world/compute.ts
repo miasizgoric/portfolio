@@ -12,9 +12,8 @@ import { buildGroveChunks, type ChunkArrays, type LayerName } from './grove'
 import { buildOutcropArrays, type BoulderArrays } from './outcrops'
 import { buildTerrainArrays, type TerrainArrays } from './terrainMesh'
 
-// Everything the scene needs that is expensive to generate and never changes: textures, the
-// terrain mesh, boulders and every tree and blade of grass. It is plain typed arrays so it can
-// be built in a worker and handed to the main thread without copying.
+// Everything the scene needs that is expensive to generate and never changes: textures, the terrain mesh, boulders and every tree and blade of grass.
+// It is plain typed arrays so it can be built in a worker and handed to the main thread without copying.
 export interface WorldData {
   moss: SurfaceData
   rock: SurfaceData
@@ -61,8 +60,7 @@ export function computeWorld(): { world: WorldData; transfer: ArrayBuffer[] } {
   }
   for (const chunks of Object.values(world.grove)) {
     for (const c of chunks) {
-      transfer.push(c.matrices.buffer as ArrayBuffer)
-      if (c.colors) transfer.push(c.colors.buffer as ArrayBuffer)
+      transfer.push(c.matrices.buffer as ArrayBuffer, c.colors.buffer as ArrayBuffer)
     }
   }
   return { world, transfer }
