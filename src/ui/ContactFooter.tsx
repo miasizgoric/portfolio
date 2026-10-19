@@ -1,6 +1,7 @@
-// Where to reach me. Each entry is a link; an entry is added here as soon as there is an address for it.
+// Where to reach me, in the order shown; the page only ever shows the label, never the address behind it.
 const CONTACT = [
   { label: 'mail', href: 'mailto:miasizgoric.mig@gmail.com' },
+  { label: 'linkedin', href: 'https://www.linkedin.com/in/miasizgoric' },
   { label: 'github', href: 'https://github.com/miasizgoric' },
 ]
 
