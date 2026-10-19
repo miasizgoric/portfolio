@@ -1,14 +1,22 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { OUTSIDE, type Room as RoomData, type Wall } from '@/data/rooms'
-import { buildWallSegments, wallPointToWorld, getWallInfo, ROOF_LIFT, ROOF_THICKNESS } from '@/lib/roomGeometry'
+import {
+  buildWallSegments,
+  entranceSteps,
+  getWallInfo,
+  ROOF_LIFT,
+  ROOF_THICKNESS,
+  SOLID_THICKNESS,
+  wallPointToWorld,
+} from '@/lib/roomGeometry'
 import { useSkyClock } from '@/lib/sun'
 import { floorTextures, loadedWorld } from '@/world/useWorld'
 import { Artwork } from './Artwork'
 
-const SOLID_THICKNESS = 0.2
 const GLASS_THICKNESS = 0.04
 const FRAME_COLOR = '#e3b3a6'
+const BAY = 2.4
 const WALLS: Wall[] = ['north', 'south', 'east', 'west']
 const FLOOR_NORMAL_SCALE = new THREE.Vector2(0.35, 0.35)
 const PLASTER_NORMAL_SCALE = new THREE.Vector2(0.14, 0.14)
@@ -17,9 +25,6 @@ const MAX_LAMPS = 2
 const LAMP_TONE = '#ffeccc'
 const LAMP_INTENSITY = 17
 const LAMP_REACH = 30
-const STEP_RISE = 1.4
-const STEP_OVERHANG = 1.15
-const STEP_TUCK = 0.12
 
 function WallMesh({ room, wall }: { room: RoomData; wall: Wall }) {
   const info = getWallInfo(room, wall)
@@ -70,6 +75,20 @@ function WallMesh({ room, wall }: { room: RoomData; wall: Wall }) {
   )
 }
 
+function wallMullions(room: RoomData, wall: Wall): [number, number][] {
+  const info = getWallInfo(room, wall)
+  const bays = Math.max(1, Math.round(info.length / BAY))
+  const posts: [number, number][] = []
+  for (let i = 1; i < bays; i++) {
+    const u = info.centerU - info.length / 2 + (info.length / bays) * i
+    const blocked = room.doorways.some(
+      (d) => d.wall === wall && Math.abs(u - (info.centerU + d.offset)) < d.width / 2 + 0.2,
+    )
+    if (!blocked) posts.push(info.axis === 'x' ? [u, info.constant] : [info.constant, u])
+  }
+  return posts
+}
+
 function FramePosts({ room }: { room: RoomData }) {
   const [cx, floorY, cz] = room.center
   const corners: [number, number][] = [
@@ -79,31 +98,7 @@ function FramePosts({ room }: { room: RoomData }) {
     [cx + room.width / 2, cz + room.depth / 2],
   ]
 
-  const mullions: [number, number][] = []
-  const BAY = 2.4
-  for (const [axis, constant] of [
-    ['x', cz - room.depth / 2],
-    ['x', cz + room.depth / 2],
-  ] as const) {
-    const bays = Math.max(1, Math.round(room.width / BAY))
-    for (let i = 1; i < bays; i++) {
-      const x = cx - room.width / 2 + (room.width / bays) * i
-      const blocked = room.doorways.some(
-        (d) => d.wall === (constant < cz ? 'north' : 'south') && Math.abs(x - (cx + d.offset)) < d.width / 2 + 0.2,
-      )
-      if (!blocked && axis === 'x') mullions.push([x, constant])
-    }
-  }
-  for (const constant of [cx - room.width / 2, cx + room.width / 2]) {
-    const bays = Math.max(1, Math.round(room.depth / BAY))
-    for (let i = 1; i < bays; i++) {
-      const z = cz - room.depth / 2 + (room.depth / bays) * i
-      const blocked = room.doorways.some(
-        (d) => d.wall === (constant < cx ? 'west' : 'east') && Math.abs(z - (cz + d.offset)) < d.width / 2 + 0.2,
-      )
-      if (!blocked) mullions.push([constant, z])
-    }
-  }
+  const mullions = (['north', 'south', 'west', 'east'] as const).flatMap((wall) => wallMullions(room, wall))
 
   return (
     <>
@@ -130,47 +125,24 @@ function FramePosts({ room }: { room: RoomData }) {
 }
 
 function Thresholds({ room }: { room: RoomData }) {
-  const floorY = room.center[1]
   const stone = loadedWorld().rockTextures
+  const steps = useMemo(() => entranceSteps(room), [room])
 
   return (
     <>
-      {room.doorways
-        .filter((d) => d.toRoomId === OUTSIDE)
-        .map((d, i) => {
-          const info = getWallInfo(room, d.wall)
-          const out = -info.normalSign
-          const [x, , z] = wallPointToWorld(room, d.wall, d.offset, 0)
-          const along = d.width + 0.5
-          // The slab also runs back under the wall so no strip of ground shows in the doorway.
-          const outer = STEP_OVERHANG + SOLID_THICKNESS / 2
-          const reach = outer + STEP_TUCK
-          const shift = out * ((outer - STEP_TUCK) / 2)
-          const size: [number, number, number] =
-            info.axis === 'x' ? [along, STEP_RISE, reach] : [reach, STEP_RISE, along]
-          return (
-            <mesh
-              key={i}
-              position={[
-                info.axis === 'x' ? x : x + shift,
-                floorY - STEP_RISE / 2 + 0.03,
-                info.axis === 'x' ? z + shift : z,
-              ]}
-              receiveShadow
-              castShadow
-            >
-              <boxGeometry args={size} />
-              <meshStandardMaterial
-                color="#9c9385"
-                normalMap={stone.normalMap}
-                roughnessMap={stone.roughnessMap}
-                normalScale={PLASTER_NORMAL_SCALE}
-                roughness={0.94}
-                metalness={0}
-              />
-            </mesh>
-          )
-        })}
+      {steps.map(({ center, size }, i) => (
+        <mesh key={i} position={center} receiveShadow castShadow>
+          <boxGeometry args={size} />
+          <meshStandardMaterial
+            color="#9c9385"
+            normalMap={stone.normalMap}
+            roughnessMap={stone.roughnessMap}
+            normalScale={PLASTER_NORMAL_SCALE}
+            roughness={0.94}
+            metalness={0}
+          />
+        </mesh>
+      ))}
     </>
   )
 }

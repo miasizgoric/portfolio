@@ -1,7 +1,43 @@
-import type { Room, Wall } from '@/data/rooms'
+import { OUTSIDE, type Room, type Wall } from '@/data/rooms'
 
 export const ROOF_THICKNESS = 0.12
 export const ROOF_LIFT = 0.01
+export const SOLID_THICKNESS = 0.2
+
+const STEP_RISE = 1.4
+const STEP_OVERHANG = 1.15
+const STEP_TUCK = 0.12
+// the slab's top stands a hair above the floor so no seam shows in the doorway
+const STEP_TOP_LIFT = 0.03
+
+interface StepSlab {
+  center: [number, number, number]
+  size: [number, number, number]
+  top: number
+}
+
+// The stone slab in front of every doorway that opens outside.
+// Room draws it, and the visitor's cloud shadow lies on its top, so both read the geometry from here.
+export function entranceSteps(room: Room): StepSlab[] {
+  const floorY = room.center[1]
+  return room.doorways
+    .filter((d) => d.toRoomId === OUTSIDE)
+    .map((d): StepSlab => {
+      const info = getWallInfo(room, d.wall)
+      const out = -info.normalSign
+      const [x, , z] = wallPointToWorld(room, d.wall, d.offset, 0)
+      const along = d.width + 0.5
+      // The slab also runs back under the wall so no strip of ground shows in the doorway.
+      const outer = STEP_OVERHANG + SOLID_THICKNESS / 2
+      const reach = outer + STEP_TUCK
+      const shift = out * ((outer - STEP_TUCK) / 2)
+      const y = floorY - STEP_RISE / 2 + STEP_TOP_LIFT
+      const top = floorY + STEP_TOP_LIFT
+      return info.axis === 'x'
+        ? { center: [x, y, z + shift], size: [along, STEP_RISE, reach], top }
+        : { center: [x + shift, y, z], size: [reach, STEP_RISE, along], top }
+    })
+}
 
 export function ceilingY(room: Room): number {
   return room.center[1] + room.height

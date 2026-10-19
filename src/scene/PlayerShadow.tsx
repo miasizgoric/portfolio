@@ -3,15 +3,16 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { rooms } from '@/data/rooms'
 import { findRoomAt, groundHeightAt } from '@/lib/collision'
+import { entranceSteps } from '@/lib/roomGeometry'
 import { SEA } from '@/lib/terrain'
+import { clamp01 } from '@/lib/terrainNoise'
 import { keyLightOf, useSkyClock } from '@/lib/sun'
 import { useWeather } from '@/lib/weather'
 
-// The visitor has no body, so their shadow is a small cloud that lies on the ground where the
-// sun (or moon) would throw it. The cloud is a flat patch laid over the terrain rather than a
-// shadow-map caster: the key light's map only refreshes every few frames and would lag behind.
+// The visitor has no body, so their shadow is a small cloud that lies on the ground where the sun (or moon) would throw it.
+// The cloud is a flat patch laid over the terrain rather than a shadow-map caster: the key light's map only refreshes every few frames and would lag behind.
 const PATCH = 6.6
-const GRID = 10
+const GRID = 12
 const LIFT = 0.05
 const CLOUD_RADIUS = 1.05
 const MIN_TAN = 0.28
@@ -20,14 +21,38 @@ const INDOOR_STRENGTH = 0.65
 
 const COUNT = (GRID + 1) * (GRID + 1)
 
+const STEPS = rooms.flatMap(entranceSteps)
+const STEP_MARGIN = PATCH / GRID
+
+// What the cloud can lie on at a point: the terrain (with the entrance slab standing a little above it), a room's floor, or its roof.
+// Each is a level of its own, and a patch draped across two of them would be a ramp up the wall, so the cloud only covers the level the visitor is on.
+const surface = { y: 0, level: -1 }
+
+function sampleSurface(x: number, z: number, feetY: number) {
+  const room = findRoomAt(rooms, x, z)
+  let y = groundHeightAt(rooms, x, z, feetY)
+  if (room) {
+    surface.level = rooms.indexOf(room) * 2 + (y > room.center[1] ? 1 : 0)
+  } else {
+    surface.level = -1
+    // The slab's reach is widened by one grid cell: the cells just past its edge would otherwise lie on the grass, a hand's breadth below the top, and the slab would swallow a wedge of cloud.
+    for (const { center, size, top } of STEPS) {
+      if (Math.abs(x - center[0]) <= size[0] / 2 + STEP_MARGIN && Math.abs(z - center[2]) <= size[2] / 2 + STEP_MARGIN) {
+        y = Math.max(y, top)
+      }
+    }
+  }
+  surface.y = y
+}
+
 const VERTEX = `
-attribute float aWet;
+attribute float aGone;
 varying vec2 vLocal;
-varying float vWet;
+varying float vGone;
 
 void main() {
   vLocal = (uv - 0.5) * ${PATCH.toFixed(3)};
-  vWet = aWet;
+  vGone = aGone;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
 `
@@ -39,7 +64,7 @@ uniform float uRadius;
 uniform float uStretch;
 uniform float uSoft;
 varying vec2 vLocal;
-varying float vWet;
+varying float vGone;
 
 float lobe(vec2 q, vec2 center, float radius) {
   vec2 d = (q - center) / radius;
@@ -62,8 +87,8 @@ void main() {
 
   float edge = smoothstep(0.1, 0.1 + 0.5 * uSoft, f);
   float core = smoothstep(0.1, 1.3, f);
-  // Over open water there is no surface to fall on, so the cloud stops at the shore.
-  float alpha = edge * mix(0.72, 1.0, core) * uStrength * (1.0 - smoothstep(0.2, 0.8, vWet));
+  // Over open water, or past the edge of the level the visitor stands on, there is no surface to fall on, so the cloud stops there.
+  float alpha = edge * mix(0.72, 1.0, core) * uStrength * (1.0 - smoothstep(0.2, 0.8, vGone));
   if (alpha < 0.002) discard;
 
   // Multiplied onto the ground, so a shadow can only ever darken it, even on a near-black floor.
@@ -93,12 +118,10 @@ function createGeometry(): THREE.BufferGeometry {
   }
   geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(COUNT * 3), 3))
   geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
-  geometry.setAttribute('aWet', new THREE.BufferAttribute(new Float32Array(COUNT), 1))
+  geometry.setAttribute('aGone', new THREE.BufferAttribute(new Float32Array(COUNT), 1))
   geometry.setIndex(index)
   return geometry
 }
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 
 export function PlayerShadow() {
   const { sun, moon } = useSkyClock()
@@ -141,9 +164,8 @@ export function PlayerShadow() {
     [geometry, material],
   )
 
-  // `laid` is where the patch was last draped over the terrain, so the ground is only
-  // re-sampled when the cloud actually moved.
-  const laid = useRef({ cx: Infinity, cz: Infinity, ax: 0, az: 0 })
+  // `laid` is where the patch was last draped over the terrain, so the ground is only re-sampled when the cloud actually moved.
+  const laid = useRef({ cx: Infinity, cz: Infinity, ax: 0, az: 0, level: -1, base: 0 })
   const motion = useRef({ ax: 0, az: -1, indoor: 0, time: 0 })
 
   useFrame(({ camera }, delta) => {
@@ -153,7 +175,9 @@ export function PlayerShadow() {
     const pz = camera.position.z
 
     const room = findRoomAt(rooms, px, pz)
-    const groundY = groundHeightAt(rooms, px, pz, camera.position.y)
+    sampleSurface(px, pz, camera.position.y)
+    const groundY = surface.y
+    const baseLevel = surface.level
     // On a roof the visitor is outdoors again, under the sun.
     const inside = room !== undefined && groundY <= room.center[1] + 0.01
     m.indoor = THREE.MathUtils.damp(m.indoor, inside ? 1 : 0, 5, dt)
@@ -170,8 +194,7 @@ export function PlayerShadow() {
     const reach = Math.min(height / tanElevation, MAX_REACH)
     const offset = reach * 0.5 * (1 - m.indoor)
 
-    // Under the ceiling lamps the light is straight overhead, so the cloud sits right under the
-    // visitor, rounder and a little larger than a sun shadow.
+    // Under the ceiling lamps the light is straight overhead, so the cloud sits right under the visitor, rounder and a little larger than a sun shadow.
     const stretch = THREE.MathUtils.lerp(THREE.MathUtils.clamp(0.7 + 0.6 / tanElevation, 1, 2.4), 1, m.indoor)
     const radius = Math.min(
       CLOUD_RADIUS * (1 + 0.04 * height) * (1 + 0.15 * m.indoor),
@@ -185,11 +208,13 @@ export function PlayerShadow() {
       Math.abs(cx - l.cx) > 0.01 ||
       Math.abs(cz - l.cz) > 0.01 ||
       Math.abs(m.ax - l.ax) > 0.002 ||
-      Math.abs(m.az - l.az) > 0.002
+      Math.abs(m.az - l.az) > 0.002 ||
+      baseLevel !== l.level ||
+      Math.abs(groundY - l.base) > 0.01
     ) {
       const position = geometry.getAttribute('position') as THREE.BufferAttribute
       const uv = geometry.getAttribute('uv') as THREE.BufferAttribute
-      const wet = geometry.getAttribute('aWet') as THREE.BufferAttribute
+      const gone = geometry.getAttribute('aGone') as THREE.BufferAttribute
       // Local axes of the patch: `a` runs along the shadow, `b` across it.
       const bx = -m.az
       const bz = m.ax
@@ -198,16 +223,20 @@ export function PlayerShadow() {
         const b = (uv.getY(k) - 0.5) * PATCH
         const wx = cx + a * m.ax + b * bx
         const wz = cz + a * m.az + b * bz
-        const ground = groundHeightAt(rooms, wx, wz, camera.position.y)
-        position.setXYZ(k, wx, ground + LIFT, wz)
-        wet.setX(k, ground < SEA.level + 0.2 ? 1 : 0)
+        sampleSurface(wx, wz, camera.position.y)
+        // Another level, or open water: lie flat at the visitor's own height and fade out.
+        const away = surface.level !== baseLevel || surface.y < SEA.level + 0.2
+        position.setXYZ(k, wx, (surface.level === baseLevel ? surface.y : groundY) + LIFT, wz)
+        gone.setX(k, away ? 1 : 0)
       }
       position.needsUpdate = true
-      wet.needsUpdate = true
+      gone.needsUpdate = true
       l.cx = cx
       l.cz = cz
       l.ax = m.ax
       l.az = m.az
+      l.level = baseLevel
+      l.base = groundY
     }
 
     const sunny = lightStrength * 0.85 * (1 - 0.45 * weather.cloudCover)
