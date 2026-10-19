@@ -21,13 +21,20 @@ export function tileable(u: number, v: number, f: (x: number, y: number) => numb
   return a * iu * iv + b * u * iv + c * iu * v + d * u * v
 }
 
-function configure(tex: THREE.DataTexture, srgb: boolean): THREE.DataTexture {
+export function tiledTexture(
+  data: Uint8Array,
+  size: number,
+  format: THREE.PixelFormat,
+  anisotropy: number,
+  srgb = false,
+): THREE.DataTexture {
+  const tex = new THREE.DataTexture(data, size, size, format)
   tex.wrapS = THREE.RepeatWrapping
   tex.wrapT = THREE.RepeatWrapping
   tex.magFilter = THREE.LinearFilter
   tex.minFilter = THREE.LinearMipmapLinearFilter
   tex.generateMipmaps = true
-  tex.anisotropy = 8
+  tex.anisotropy = anisotropy
   tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace
   tex.needsUpdate = true
   return tex
@@ -145,7 +152,6 @@ export function createWoodFloorData(): SurfaceData {
       rough: clamp01(0.42 + figure * 0.16 + seam * 0.35),
     }
   })
-
 }
 
 export function createRockData(): SurfaceData {
@@ -162,10 +168,9 @@ export function createRockData(): SurfaceData {
   })
 }
 
-
 export function surfaceTextures(data: SurfaceData, repeat?: [number, number]): SurfaceTextures {
   const make = (pixels: Uint8Array, srgb: boolean) => {
-    const tex = configure(new THREE.DataTexture(pixels, SIZE, SIZE, THREE.RGBAFormat), srgb)
+    const tex = tiledTexture(pixels, SIZE, THREE.RGBAFormat, 8, srgb)
     if (repeat) tex.repeat.set(repeat[0], repeat[1])
     return tex
   }

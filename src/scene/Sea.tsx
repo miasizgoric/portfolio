@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { tiledTexture } from '@/lib/proceduralTextures'
 import { SEA } from '@/lib/terrain'
 import { GRADIENT_RANGE, PATCH_SIZE, WAVE_SIZE } from '@/world/seaData'
 import type { World } from '@/world/useWorld'
@@ -28,29 +29,6 @@ const PATCH_LAYERS = [
 const DEEP_NIGHT = new THREE.Color('#050d15')
 const AIRGLOW = new THREE.Color('#0e1a2e')
 const DEEP_DAY = new THREE.Color('#123a44')
-
-function makeWaveTexture(data: Uint8Array): THREE.DataTexture {
-  const tex = new THREE.DataTexture(data, WAVE_SIZE, WAVE_SIZE, THREE.RGBAFormat)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.minFilter = THREE.LinearMipmapLinearFilter
-  tex.magFilter = THREE.LinearFilter
-  tex.generateMipmaps = true
-  tex.anisotropy = 8
-  tex.needsUpdate = true
-  return tex
-}
-
-function makePatchTexture(data: Uint8Array): THREE.DataTexture {
-  const tex = new THREE.DataTexture(data, PATCH_SIZE, PATCH_SIZE, THREE.RGBAFormat)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.minFilter = THREE.LinearMipmapLinearFilter
-  tex.magFilter = THREE.LinearFilter
-  tex.generateMipmaps = true
-  tex.needsUpdate = true
-  return tex
-}
 
 const SEA_VERTEX_PARS = `
 varying vec3 vSeaWorld;
@@ -109,19 +87,18 @@ const SEA_NORMAL = `
 }
 `
 
-// Night sea: the lit sky is near black, so the water would read as flat fog. A faint airglow
-// sheen, strongest where the swell tilts the surface toward the viewer, keeps the waves visible.
 // The sea is the farthest thing in the scene; the scene fog would flatten most of it into the sky.
 const SEA_FOG = `
 #ifdef USE_FOG
   gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, smoothstep(fogNear * 2.0, fogFar * 2.6, vFogDepth));
   // The camera stops drawing at its far plane, which used to leave the sea ending in an edge.
-  // Fading by view depth (the same measure the far plane clips by) dissolves the water into the
-  // sky along a straight horizon instead.
+  // Fading by view depth (the same measure the far plane clips by) dissolves the water into the sky along a straight horizon instead.
   gl_FragColor.a *= 1.0 - smoothstep(${HORIZON_FADE_START.toFixed(1)}, ${HORIZON_FADE_END.toFixed(1)}, vFogDepth);
 #endif
 `
 
+// Night sea: the lit sky is near black, so the water would read as flat fog.
+// A faint airglow sheen, strongest where the swell tilts the surface toward the viewer, keeps the waves visible.
 const SEA_SHEEN = `
 #include <emissivemap_fragment>
 {
@@ -148,8 +125,8 @@ export function Sea({ world }: { world: World }) {
   const weather = useWeather()
   const { sun } = useSkyClock()
 
-  const waves = useMemo(() => makeWaveTexture(world.seaWaves), [world])
-  const patches = useMemo(() => makePatchTexture(world.seaPatches), [world])
+  const waves = useMemo(() => tiledTexture(world.seaWaves, WAVE_SIZE, THREE.RGBAFormat, 8), [world])
+  const patches = useMemo(() => tiledTexture(world.seaPatches, PATCH_SIZE, THREE.RGBAFormat, 1), [world])
   const probe = useSkyProbe()
 
   const uniforms = useMemo(

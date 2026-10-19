@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { tiledTexture } from '@/lib/proceduralTextures'
 import { CLOUD_TEX } from '@/world/cloudData'
 import type { World } from '@/world/useWorld'
 import { useSkyClock } from '@/lib/sun'
@@ -8,7 +9,6 @@ import { useWeather } from '@/lib/weather'
 
 const SIZE = 1200
 const HEIGHT = 235
-const TEX = CLOUD_TEX
 
 const LIT_NIGHT = new THREE.Color('#2f3a52')
 const LIT_DUSK = new THREE.Color('#f6c9a0')
@@ -16,18 +16,6 @@ const LIT_DAY = new THREE.Color('#fbf7f0')
 const SHADE_NIGHT = new THREE.Color('#10151f')
 const SHADE_DUSK = new THREE.Color('#6d5668')
 const SHADE_DAY = new THREE.Color('#93a3b6')
-
-function makeCloudTexture(data: Uint8Array): THREE.DataTexture {
-  const tex = new THREE.DataTexture(data, TEX, TEX, THREE.RedFormat)
-  tex.wrapS = THREE.RepeatWrapping
-  tex.wrapT = THREE.RepeatWrapping
-  tex.minFilter = THREE.LinearMipmapLinearFilter
-  tex.magFilter = THREE.LinearFilter
-  tex.generateMipmaps = true
-  tex.anisotropy = 4
-  tex.needsUpdate = true
-  return tex
-}
 
 const CLOUD_VERTEX = `
 varying vec2 vCloudUv;
@@ -73,7 +61,7 @@ export function CloudLayer({ world }: { world: World }) {
   const { sun } = useSkyClock()
   const weather = useWeather()
   const mesh = useRef<THREE.Mesh>(null)
-  const texture = useMemo(() => makeCloudTexture(world.clouds), [world])
+  const texture = useMemo(() => tiledTexture(world.clouds, CLOUD_TEX, THREE.RedFormat, 4), [world])
 
   const material = useMemo(
     () =>
