@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { motion } from 'framer-motion'
 import { FlippingWordSwap } from '@/components/ui/flipping-word-swap'
+import { ContactFooter } from './ContactFooter'
 import { MnemosyneHome } from './MnemosyneHome'
 import { ScrambleText } from './ScrambleText'
 
@@ -111,7 +112,7 @@ export function MyWorkPage({ onBack }: { onBack: () => void }) {
           <div style={{ height: 'calc(100dvh + 6rem)' }} />
           <section
             ref={panel}
-            className="relative z-10 min-h-dvh bg-black px-6 pb-32 before:pointer-events-none before:absolute before:inset-x-0 before:-top-24 before:h-24 before:bg-linear-to-t before:from-black before:to-transparent"
+            className="relative z-10 flex min-h-dvh flex-col bg-black px-6 pb-[calc(env(safe-area-inset-bottom,0px)+2rem)] before:pointer-events-none before:absolute before:inset-x-0 before:-top-24 before:h-24 before:bg-linear-to-t before:from-black before:to-transparent"
             style={{ paddingTop: 'calc(var(--title-top) + 5.5rem)' }}
           >
             <MnemosyneHome />
@@ -120,13 +121,14 @@ export function MyWorkPage({ onBack }: { onBack: () => void }) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.6 }}
               transition={{ duration: 0.9, ease: SOFT_EASE }}
-              className={`mx-auto mt-10 ${BLURB}`}
+              className={`mx-auto mt-10 mb-24 ${BLURB}`}
             >
               an explainable decision-support system for early alzheimer&apos;s detection, built as my bachelor&apos;s
               thesis with python, flask, next.js and react three fiber. from non-invasive data it sorts a patient
               into healthy, mild cognitive impairment or alzheimer&apos;s, and shows which features drove the result
               and which brain regions are affected.
             </motion.p>
+            <ContactFooter />
           </section>
         </div>
       </div>
