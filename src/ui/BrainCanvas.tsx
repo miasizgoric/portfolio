@@ -166,14 +166,13 @@ function Specimen({ onSelect, onHover }: SpecimenProps) {
   )
 }
 
-// Draws only while the view is on screen; the loop stops itself at 'never' and has to be woken.
-function Gate({ active }: { active: boolean }) {
-  const setFrameloop = useThree((s) => s.setFrameloop)
+// The loop stops itself under frameloop="never" and does not start again when the prop flips back, so it is woken whenever drawing is switched on.
+function Wake() {
+  const frameloop = useThree((s) => s.frameloop)
   const invalidate = useThree((s) => s.invalidate)
   useEffect(() => {
-    setFrameloop(active ? 'always' : 'never')
-    if (active) invalidate()
-  }, [active, setFrameloop, invalidate])
+    if (frameloop !== 'never') invalidate()
+  }, [frameloop, invalidate])
   return null
 }
 
@@ -187,15 +186,16 @@ export default function BrainCanvas({ active, onSelect }: BrainCanvasProps) {
 
   return (
     <Canvas
+      // The prop is the only thing that switches drawing on and off: fiber 9.7 puts the loop back to the prop's value whenever the canvas renders again, so a switch made from outside is undone (the brain stopped after its first frame on the deployed site).
+      frameloop={active ? 'always' : 'never'}
       // pulled back from the app's own framing: here the brain shares a small frame with the chrome
-      frameloop="never"
       camera={{ position: [0.47, 0.35, 3.3], fov: 45 }}
       dpr={[1, 1.5]}
       gl={{ antialias: true }}
       onPointerMissed={() => onSelect(null)}
     >
       <color attach="background" args={['#0a0a0a']} />
-      <Gate active={active} />
+      <Wake />
       <Specimen onSelect={onSelect} onHover={setHovering} />
       <OrbitControls
         enablePan={false}
