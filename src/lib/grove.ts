@@ -1,14 +1,8 @@
 import * as THREE from 'three'
+import type { Rect } from '@/data/rooms'
 import { mulberry32 } from './noise'
 
-export interface Footprint {
-  minX: number
-  maxX: number
-  minZ: number
-  maxZ: number
-}
-
-export function distanceToFootprint(x: number, z: number, fp: Footprint): number {
+export function distanceToFootprint(x: number, z: number, fp: Rect): number {
   const dx = Math.max(fp.minX - x, 0, x - fp.maxX)
   const dz = Math.max(fp.minZ - z, 0, z - fp.maxZ)
   return Math.hypot(dx, dz)

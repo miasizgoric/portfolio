@@ -1,8 +1,9 @@
 import type { TouchStick } from '@/store/useGalleryStore'
+import { clamp01 } from './terrainNoise'
 
-// Where the glass stick is this frame, in CSS pixels. The DOM layers (rim, sheen, shadow) and
-// the lens shader both read it, so the glass the shader bends and the outline drawn over it
-// cannot drift apart. One spring system drives all of it: pop in, follow the finger, spring back.
+// Where the glass stick is this frame, in CSS pixels.
+// The DOM layers (rim, sheen, shadow) and the lens shader both read it, so the glass the shader bends and the outline drawn over it cannot drift apart.
+// One spring system drives all of it: pop in, follow the finger, spring back.
 
 export const BASE_R = 56
 export const BEAD_R = 26
@@ -56,6 +57,6 @@ export function stepPose(dt: number, stick: TouchStick | null) {
 
 export const poseSettled = () => pose.amount < 0.003 && Math.abs(amountV) < 0.05
 
-export const fadeAmount = () => Math.min(1, Math.max(0, pose.amount))
+export const fadeAmount = () => clamp01(pose.amount)
 // the glass grows out of a smaller disc as it appears
 export const popScale = () => 0.55 + 0.45 * Math.min(1.05, Math.max(0, pose.amount))

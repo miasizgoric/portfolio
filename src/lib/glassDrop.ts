@@ -1,17 +1,16 @@
 // A glass bubble that drops a pill out of its underside.
 //
-// The pill hangs off the bubble on a neck that thins, snaps near the end of the fall, then
-// overshoots and settles as a separate piece. Closing is the reverse: it rises, the neck
-// forms again and it sinks back into the bubble.
+// The pill hangs off the bubble on a neck that thins, snaps near the end of the fall, then overshoots and settles as a separate piece.
+// Closing is the reverse: it rises, the neck forms again and it sinks back into the bubble.
 //
-// The whole thing is one outline (`clip-path: path()`), so a single piece of glass keeps
-// its backdrop blur, and the browser runs the morph itself from generated @keyframes:
-// the path is only computed once, nothing is driven from JS per frame. When the neck is
-// gone the outline keeps a zero-width bridge between the two pieces, which paints nothing.
+// The whole thing is one outline (`clip-path: path()`), so a single piece of glass keeps its backdrop blur, and the browser runs the morph itself from generated @keyframes: the path is only computed once, nothing is driven from JS per frame.
+// When the neck is gone the outline keeps a zero-width bridge between the two pieces, which paints nothing.
 //
 // Timing was read off a reference clip: the width/extension overshoots by ~16% and settles.
 
-export interface DropSpec {
+import { lerp, smoothstep } from './terrainNoise'
+
+interface DropSpec {
   bubble: number
   pillWidth: number
   pillHeight: number
@@ -36,8 +35,7 @@ interface Pt {
 
 type Table = ReadonlyArray<readonly [number, number]>
 
-// How far the pill has dropped over time in seconds: 0 = tucked into the bubble,
-// 1 = settled, above 1 = overshoot.
+// How far the pill has dropped over time in seconds: 0 = tucked into the bubble, 1 = settled, above 1 = overshoot.
 const OPEN: Table = [
   [0, 0],
   [0.067, 0.29],
@@ -66,17 +64,11 @@ const CLOSE_STEP = 0.03
 const OVERSHOOT = 1.2
 const TAU = Math.PI * 2
 
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-const smooth = (v: number) => {
-  const t = clamp01(v)
-  return t * t * (3 - 2 * t)
-}
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const fmt = (v: number) => String(Math.round(v * 10) / 10)
 
 // 1 while the pill still hangs off the bubble, 0 once the neck has snapped
-const openAttach = (t: number) => 1 - smooth((t - 0.1) / 0.14)
-const closeAttach = (t: number) => smooth((t - 0.1) / 0.1)
+const openAttach = (t: number) => 1 - smoothstep(0, 1, (t - 0.1) / 0.14)
+const closeAttach = (t: number) => smoothstep(0, 1, (t - 0.1) / 0.1)
 
 function sample(table: Table, t: number) {
   const last = table.length - 1
@@ -104,18 +96,17 @@ function solve(spec: DropSpec, e: number, d: number): Solved {
   const bottom = 2 * R + e * (spec.gap + spec.pillHeight)
 
   const r = rf * Math.min(1, e / 0.9)
-  const settle = smooth((e - 0.25) / 0.75)
+  const settle = smoothstep(0, 1, (e - 0.25) / 0.75)
   const n = Math.min(0.92 * r, lerp(0.9 * R, spec.neck / 2, settle)) * d
-  const alpha = Math.asin(Math.min(0.98, (n + 0.18 * R * smooth(e / 0.25) * d) / R))
+  const alpha = Math.asin(Math.min(0.98, (n + 0.18 * R * smoothstep(0, 1, e / 0.25) * d) / R))
   const sinR = r > 0.01 ? Math.min(0.99, n / r + 0.15 * d) : 0
-  const lb = (spec.pillWidth - spec.pillHeight) * smooth((e - 0.45) / 0.55)
+  const lb = (spec.pillWidth - spec.pillHeight) * smoothstep(0, 1, (e - 0.45) / 0.55)
   return { cy: bottom - r, r, n, lb, sinR, alpha }
 }
 
-// One closed outline, bubble on top and pill below it. The pill's right cap sits under the
-// bubble and its body runs to the left, because the bubble lives against the right edge of
-// the screen. Every call emits the same 14 cubic segments, which is what lets the browser
-// interpolate any two of them.
+// One closed outline, bubble on top and pill below it.
+// The pill's right cap sits under the bubble and its body runs to the left, because the bubble lives against the right edge of the screen.
+// Every call emits the same 14 cubic segments, which is what lets the browser interpolate any two of them.
 function contour(spec: DropSpec, s: Solved, inset: number, width: number) {
   const R = Math.max(0.01, spec.bubble / 2 - inset)
   const r = Math.max(0, s.r - inset)
@@ -161,8 +152,7 @@ function contour(spec: DropSpec, s: Solved, inset: number, width: number) {
       b,
     )
 
-  // the neck's left wall lands on the flat top of the pill, or on its left cap while the
-  // body is still shorter than the neck is wide
+  // the neck's left wall lands on the flat top of the pill, or on its left cap while the body is still shorter than the neck is wide
   let psiL = TAU
   let landL: Pt = { x: xb - dx, y: cy - r }
   if (dx > s.lb && r > 1e-6) {
@@ -250,9 +240,8 @@ export function buildDrop(spec: DropSpec) {
   const shiftY = -(R + spec.gap + rf)
   const from = (k: number) => `translate(${fmt(shiftX * k)}px,${fmt(shiftY * k)}px)`
 
-  // The pill's shadow only shows once the pill has cleared the bubble, so it never shows through
-  // the glass it is still tucked into. box-shadow is only ever drawn outside the box, so the
-  // pill itself stays clean, and it follows the pill's shape instead of a filtered, clipped copy.
+  // The pill's shadow only shows once the pill has cleared the bubble, so it never shows through the glass it is still tucked into.
+  // box-shadow is only ever drawn outside the box, so the pill itself stays clean, and it follows the pill's shape instead of a filtered, clipped copy.
   const css = `
 .gd{position:absolute;top:0;right:0;width:${width}px;height:${height}px;pointer-events:none}
 .gd-clip{position:absolute;inset:0;clip-path:${solidPath(0, 1)}}

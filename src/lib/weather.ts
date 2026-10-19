@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
+import { ZAGREB } from './sun'
 
-const ZAGREB = { lat: 45.815, lon: 15.982 }
 const REFRESH_MS = 10 * 60 * 1000
 
 const ENDPOINT =

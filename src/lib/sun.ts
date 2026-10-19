@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react'
 import { getMoonIllumination, getMoonPosition, getPosition } from 'suncalc'
+import { clamp01, smoothstep } from './terrainNoise'
 
-const ZAGREB = { lat: 45.815, lon: 15.982 }
+export const ZAGREB = { lat: 45.815, lon: 15.982 }
 
 const REFRESH_MS = 60000
 
@@ -25,17 +26,6 @@ interface SkyClock {
   moon: MoonState
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
-}
-
-function smoothstep(x: number, min: number, max: number): number {
-  if (x <= min) return 0
-  if (x >= max) return 1
-  const t = (x - min) / (max - min)
-  return t * t * (3 - 2 * t)
-}
-
 const DEG = Math.PI / 180
 
 function directionFrom(altitudeDeg: number, azimuthDeg: number): [number, number, number] {
@@ -49,10 +39,10 @@ function computeSun(date: Date): SunState {
   const raw = getPosition(date, ZAGREB.lat, ZAGREB.lon)
   const altitude = raw.altitude * DEG
 
-  const dayFactor = smoothstep(altitude, -0.1, 0.14)
-  const nightFactor = 1 - smoothstep(altitude, -0.3, -0.08)
-  const twilightFactor = clamp(1 - dayFactor - nightFactor, 0, 1)
-  const goldenFactor = smoothstep(altitude, -0.08, 0.01) * (1 - smoothstep(altitude, 0.05, 0.2))
+  const dayFactor = smoothstep(-0.1, 0.14, altitude)
+  const nightFactor = 1 - smoothstep(-0.3, -0.08, altitude)
+  const twilightFactor = clamp01(1 - dayFactor - nightFactor)
+  const goldenFactor = smoothstep(-0.08, 0.01, altitude) * (1 - smoothstep(0.05, 0.2, altitude))
 
   return {
     position: directionFrom(raw.altitude, raw.azimuth),
@@ -67,7 +57,7 @@ function computeMoon(date: Date): MoonState {
   const raw = getMoonPosition(date, ZAGREB.lat, ZAGREB.lon)
   const altitude = raw.altitude * DEG
   const { fraction } = getMoonIllumination(date)
-  const risen = smoothstep(altitude, -0.05, 0.28)
+  const risen = smoothstep(-0.05, 0.28, altitude)
 
   return {
     position: directionFrom(raw.altitude, raw.azimuth),
@@ -75,8 +65,7 @@ function computeMoon(date: Date): MoonState {
   }
 }
 
-// The single directional light is the sun by day and the moon by night; the player's shadow
-// follows the same direction and strength.
+// The single directional light is the sun by day and the moon by night; the player's shadow follows the same direction and strength.
 export function keyLightOf(sun: SunState, moon: MoonState) {
   const night = sun.nightFactor > 0.5
   const moonlit = (0.04 + moon.light * 0.96) * sun.nightFactor

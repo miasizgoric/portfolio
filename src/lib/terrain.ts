@@ -1,5 +1,6 @@
 import * as THREE from 'three'
-import { distanceToFootprint, type Footprint } from './grove'
+import type { Rect } from '@/data/rooms'
+import { distanceToFootprint } from './grove'
 import { mulberry32 } from './noise'
 import {
   billow2,
@@ -12,7 +13,7 @@ import {
   terrace,
 } from './terrainNoise'
 
-export const FOOTPRINT: Footprint = { minX: -9, maxX: 9, minZ: -16, maxZ: 10 }
+export const FOOTPRINT: Rect = { minX: -9, maxX: 9, minZ: -16, maxZ: 10 }
 
 const GROUND_BIAS = -0.06
 
@@ -206,7 +207,7 @@ function angleDelta(a: number, b: number): number {
   return d
 }
 
-function createTerrainField(fp: Footprint): TerrainField {
+function createTerrainField(fp: Rect): TerrainField {
   const warpN = makeNoise2D(1301)
   const nearN = makeNoise2D(2207)
   const fineN = makeNoise2D(3319)
