@@ -36,9 +36,6 @@ function RegionCard({ region }: { region: BrainRegion }) {
       <p className="mt-1 text-[8.5px]" style={{ color: APP.mute }}>
         {zLabelOf(region.z)}
       </p>
-      <p className="mt-1 text-[8.5px]" style={{ color: accent }}>
-        Atrophy severity: {Math.round(Math.min(1, severity) * 100)}%
-      </p>
       <p className="mt-1.5 text-[8px] leading-relaxed" style={{ color: APP.mute }}>
         {region.note}
       </p>
@@ -85,7 +82,7 @@ export function MnemosyneHome() {
           {webgl && near && (
             <ViewBoundary>
               <Suspense fallback={null}>
-                <BrainCanvas active={visible} picked={picked} onSelect={setPicked} />
+                <BrainCanvas active={visible} onSelect={setPicked} />
               </Suspense>
             </ViewBoundary>
           )}

@@ -1,15 +1,13 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { BRAIN_REGIONS, severityOf, type BrainRegion } from '@/data/brainRegions'
 
 const MODEL = '/models/human-brain.glb'
-// How far a region's colour reaches over the surface, how much more it reaches as it gets worse, and how strong the colour gets at its strongest (the app's own values, toned down: a small frame makes the same colour read much louder).
-const HEAT_REACH = 0.13
-const HEAT_GROW = 0.1
-const HEAT_STRENGTH = 0.72
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+// A fingertip is far bigger than a pointer, and the pointing targets are small on a phone's screen.
+const TOUCH_HIT_SCALE = window.matchMedia('(pointer: coarse)').matches ? 1.8 : 1
 
 const VERT = `
 varying vec3 vPos;
@@ -23,7 +21,7 @@ void main() {
   gl_Position = projectionMatrix * mv;
 }`
 
-// The app's own shader: soft two-light tissue shading with a faint rim, translucent, and a red heat that grows around each region in proportion to how far it sits below normal.
+// The thesis app's own shader: soft two-light tissue shading with a faint rim, translucent, and a red heat around each region in proportion to how far it sits below normal.
 const FRAG = `
 uniform vec3  uPos[${BRAIN_REGIONS.length}];
 uniform float uSev[${BRAIN_REGIONS.length}];
@@ -68,7 +66,7 @@ void main() {
   float heat = 0.0;
   for (int i = 0; i < ${BRAIN_REGIONS.length}; i++) {
     float d = distance(vPos, uPos[i]);
-    float r = ${HEAT_REACH.toFixed(2)} + ${HEAT_GROW.toFixed(2)} * uSev[i];
+    float r = 0.15 + 0.12 * uSev[i];
     float t = clamp(1.0 - d / r, 0.0, 1.0);
     heat = max(heat, smoothstep(0.0, 1.0, t) * uSev[i]);
   }
@@ -82,7 +80,7 @@ void main() {
     grain = 0.65 * vnoise(q) + 0.35 * vnoise(q * 2.3 + 5.0);
   }
   float core = smoothstep(0.35, 0.65, heatRaw);
-  heat = clamp(max(heatBoost * (0.55 + 0.75 * grain), core), 0.0, 1.0) * ${HEAT_STRENGTH.toFixed(2)};
+  heat = clamp(max(heatBoost * (0.55 + 0.75 * grain), core), 0.0, 1.0);
 
   vec3 tissue = vec3(0.72) * shade + fres * 0.22;
   vec3 red = mix(vec3(0.55, 0.06, 0.05), vec3(1.0, 0.05, 0.02), heatBoost);
@@ -94,95 +92,25 @@ void main() {
   gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
 }`
 
-// Where each region shows on the surface: the point at which a ray from the region, heading along its `surface` direction, leaves the brain.
-// Found by casting from well outside back towards the region and taking the first surface it meets.
-function surfaceAnchors(model: THREE.Object3D): THREE.Vector3[] {
-  model.updateMatrixWorld(true)
-  const raycaster = new THREE.Raycaster()
-  return BRAIN_REGIONS.map((region) => {
-    const centre = new THREE.Vector3(...region.position)
-    const out = new THREE.Vector3(...region.surface).normalize()
-    raycaster.set(centre.clone().addScaledVector(out, 4), out.clone().negate())
-    return raycaster.intersectObject(model, true)[0]?.point.clone() ?? centre
-  })
+interface SpecimenProps {
+  onSelect: (region: BrainRegion | null) => void
+  onHover: (hovering: boolean) => void
 }
 
-// How close, as a share of the view's height, the pointer has to be to a region's mark to pick it.
-const PICK_RADIUS = 0.1
-// A mark counts as hidden when the surface in front of it is closer to the camera by more than this.
-const HIDDEN_BY = 0.06
-
-// Pointing picks the region whose mark is nearest the pointer on screen, as long as nothing is in front of that mark.
-// Picking by a ray through invisible spheres let neighbouring regions shadow one another from some angles.
-function Picker({ model, anchors, onSelect }: { model: THREE.Object3D; anchors: THREE.Vector3[]; onSelect: (region: BrainRegion | null) => void }) {
-  const gl = useThree((s) => s.gl)
-  const camera = useThree((s) => s.camera)
-
-  useEffect(() => {
-    const el = gl.domElement
-    const raycaster = new THREE.Raycaster()
-    const spot = new THREE.Vector3()
-    const toMark = new THREE.Vector3()
-    const visible = (point: THREE.Vector3) => {
-      toMark.copy(point).sub(camera.position)
-      const distance = toMark.length()
-      raycaster.set(camera.position, toMark.normalize())
-      const first = raycaster.intersectObject(model, true)[0]
-      return !first || first.distance > distance - HIDDEN_BY
-    }
-    const nearest = (e: PointerEvent): BrainRegion | null => {
-      const rect = el.getBoundingClientRect()
-      camera.updateMatrixWorld()
-      const near: { region: BrainRegion; point: THREE.Vector3; distance: number }[] = []
-      for (let i = 0; i < anchors.length; i++) {
-        spot.copy(anchors[i]).project(camera)
-        const x = rect.left + ((spot.x + 1) / 2) * rect.width
-        const y = rect.top + ((1 - spot.y) / 2) * rect.height
-        const distance = Math.hypot(x - e.clientX, y - e.clientY)
-        if (distance < rect.height * PICK_RADIUS) near.push({ region: BRAIN_REGIONS[i], point: anchors[i], distance })
-      }
-      near.sort((p, q) => p.distance - q.distance)
-      return near.find((mark) => visible(mark.point))?.region ?? null
-    }
-    // the mouse points by hovering; touch has no hover, so a tap picks and the pick stays until the next tap
-    const move = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') onSelect(nearest(e))
-    }
-    const down = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse') onSelect(nearest(e))
-    }
-    const leave = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') onSelect(null)
-    }
-    el.addEventListener('pointermove', move)
-    el.addEventListener('pointerdown', down)
-    el.addEventListener('pointerleave', leave)
-    return () => {
-      el.removeEventListener('pointermove', move)
-      el.removeEventListener('pointerdown', down)
-      el.removeEventListener('pointerleave', leave)
-    }
-  }, [anchors, camera, gl, model, onSelect])
-
-  return null
-}
-
-function Specimen({ onSelect }: { onSelect: (region: BrainRegion | null) => void }) {
+function Specimen({ onSelect, onHover }: SpecimenProps) {
   const { scene } = useGLTF(MODEL)
   const material = useRef<THREE.ShaderMaterial | null>(null)
   // a copy, so the cached model keeps its own materials
   const model = useMemo(() => scene.clone(true), [scene])
-  const anchors = useMemo(() => surfaceAnchors(model), [model])
 
-  // The material is made here, not while rendering, because its uniforms are written every frame.
+  // The material is made here, not while rendering, because its time uniform is written every frame.
   useLayoutEffect(() => {
     const mat = new THREE.ShaderMaterial({
       vertexShader: VERT,
       fragmentShader: FRAG,
       uniforms: {
-        uPos: { value: anchors },
-        // the colour comes in once the view is on screen
-        uSev: { value: BRAIN_REGIONS.map(() => 0) },
+        uPos: { value: BRAIN_REGIONS.map((region) => new THREE.Vector3(...region.position)) },
+        uSev: { value: BRAIN_REGIONS.map((region) => severityOf(region.z)) },
         uTime: { value: 0 },
       },
       transparent: true,
@@ -196,18 +124,10 @@ function Specimen({ onSelect }: { onSelect: (region: BrainRegion | null) => void
       mat.dispose()
       material.current = null
     }
-  }, [model, anchors])
+  }, [model])
 
-  useFrame(({ clock }, delta) => {
-    const mat = material.current
-    if (!mat) return
-    const sev = mat.uniforms.uSev.value as number[]
-    // frame-rate independent ease towards the target, about the same pace as the app's
-    const k = REDUCED_MOTION ? 1 : 1 - Math.exp(-5 * delta)
-    BRAIN_REGIONS.forEach((region, i) => {
-      sev[i] += (severityOf(region.z) - sev[i]) * k
-    })
-    mat.uniforms.uTime.value = REDUCED_MOTION ? 0 : clock.elapsedTime
+  useFrame(({ clock }) => {
+    if (material.current) material.current.uniforms.uTime.value = REDUCED_MOTION ? 0 : clock.elapsedTime
   })
 
   // the model is the only thing this view loads, so let go of it with the view
@@ -216,7 +136,32 @@ function Specimen({ onSelect }: { onSelect: (region: BrainRegion | null) => void
   return (
     <>
       <primitive object={model} />
-      <Picker model={model} anchors={anchors} onSelect={onSelect} />
+      {BRAIN_REGIONS.map((region) => (
+        <mesh
+          key={region.id}
+          position={region.position}
+          // the mouse points by hovering; the view stops turning while it rests on a region so the card stays beside it
+          onPointerEnter={(e: ThreeEvent<PointerEvent>) => {
+            if (e.nativeEvent.pointerType !== 'mouse') return
+            e.stopPropagation()
+            onSelect(region)
+            onHover(true)
+          }}
+          onPointerLeave={(e: ThreeEvent<PointerEvent>) => {
+            if (e.nativeEvent.pointerType !== 'mouse') return
+            onSelect(null)
+            onHover(false)
+          }}
+          // touch has no hover: a tap picks, and the pick stays until something else is tapped
+          onClick={(e: ThreeEvent<MouseEvent>) => {
+            e.stopPropagation()
+            onSelect(region)
+          }}
+        >
+          <sphereGeometry args={[region.radius * TOUCH_HIT_SCALE, 14, 14]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      ))}
     </>
   )
 }
@@ -234,29 +179,31 @@ function Gate({ active }: { active: boolean }) {
 
 interface BrainCanvasProps {
   active: boolean
-  picked: BrainRegion | null
   onSelect: (region: BrainRegion | null) => void
 }
 
-export default function BrainCanvas({ active, picked, onSelect }: BrainCanvasProps) {
+export default function BrainCanvas({ active, onSelect }: BrainCanvasProps) {
+  const [hovering, setHovering] = useState(false)
+
   return (
     <Canvas
-      // pulled back from the app's own framing, and turned to the side the regions are marked on
+      // pulled back from the app's own framing: here the brain shares a small frame with the chrome
       frameloop="never"
-      camera={{ position: [1.2, 0.85, 2.9], fov: 45 }}
+      camera={{ position: [0.47, 0.35, 3.3], fov: 45 }}
       dpr={[1, 1.5]}
       gl={{ antialias: true }}
+      onPointerMissed={() => onSelect(null)}
     >
       <color attach="background" args={['#0a0a0a']} />
       <Gate active={active} />
-      <Specimen onSelect={onSelect} />
+      <Specimen onSelect={onSelect} onHover={setHovering} />
       <OrbitControls
         enablePan={false}
         enableZoom={false}
         enableDamping
         dampingFactor={0.08}
         rotateSpeed={0.7}
-        autoRotate={!REDUCED_MOTION && picked === null}
+        autoRotate={!REDUCED_MOTION && !hovering}
         autoRotateSpeed={0.7}
       />
     </Canvas>
