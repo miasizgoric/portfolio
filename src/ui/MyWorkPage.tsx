@@ -5,6 +5,8 @@ import { MnemosyneHome } from './MnemosyneHome'
 import { ScrambleText } from './ScrambleText'
 
 const SOFT_EASE = [0.22, 1, 0.36, 1] as const
+// the short description under a project, the same voice for the page and for each project
+const BLURB = 'max-w-md px-8 text-center font-mono text-[11px] lowercase leading-relaxed tracking-[0.1em] text-white/55'
 const TITLE_WORDS = ['my work', 'mnemosyne']
 // the title flips once the next panel has risen above this share of the window height
 const FLIP_LINE = 0.55
@@ -85,7 +87,7 @@ export function MyWorkPage({ onBack }: { onBack: () => void }) {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.9, delay: 1.2, ease: SOFT_EASE }}
-                  className="max-w-md px-8 text-center font-mono text-[11px] lowercase leading-relaxed tracking-[0.1em] text-white/55"
+                  className={BLURB}
                 >
                   a walkable 3d gallery built with react, typescript and three.js. the terrain, forest,
                   reeds and sea are generated in code, and the sky follows the real weather in zagreb.
@@ -113,6 +115,18 @@ export function MyWorkPage({ onBack }: { onBack: () => void }) {
             style={{ paddingTop: 'calc(var(--title-top) + 5.5rem)' }}
           >
             <MnemosyneHome />
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.6 }}
+              transition={{ duration: 0.9, ease: SOFT_EASE }}
+              className={`mx-auto mt-10 ${BLURB}`}
+            >
+              an explainable decision-support system for early alzheimer&apos;s detection, built as my bachelor&apos;s
+              thesis with python, flask, next.js and react three fiber. from non-invasive data it sorts a patient
+              into healthy, mild cognitive impairment or alzheimer&apos;s, and shows which features drove the result
+              and which brain regions are affected.
+            </motion.p>
           </section>
         </div>
       </div>
