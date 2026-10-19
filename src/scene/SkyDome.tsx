@@ -17,7 +17,6 @@ function buildStarField() {
   const rand = mulberry32(20260918)
   const positions = new Float32Array(STAR_COUNT * 3)
   const colors = new Float32Array(STAR_COUNT * 3)
-  const sizes = new Float32Array(STAR_COUNT)
   const color = new THREE.Color()
 
   for (let i = 0; i < STAR_COUNT; i++) {
@@ -36,13 +35,11 @@ function buildStarField() {
     colors[i * 3] = color.r
     colors[i * 3 + 1] = color.g
     colors[i * 3 + 2] = color.b
-    sizes[i] = 0.5 + magnitude * 2
   }
 
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
   return geometry
 }
 
